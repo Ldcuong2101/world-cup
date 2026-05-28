@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Ranking – WC Predict{% endblock %}
+
+{% block content %}
+
+{# ── Hero: current user rank ─────────────────────────────────────────────── #}
+{% set my_rank = namespace(val=0) %}
+{% for u in users %}
+  {% if u.id == user.id %}{% set my_rank.val = loop.index %}{% endif %}
+{% endfor %}
+
+<div class="glass border border-slate-700/50 rounded-2xl px-6 py-5 mb-8 flex items-center justify-between
+            bg-gradient-to-r from-amber-500/5 to-transparent">
+  <div>
+    <p class="text-slate-400 text-sm">Your standing</p>
+    <div class="flex items-baseline gap-2 mt-1">
+      <span class="text-4xl font-extrabold text-white">#{{ my_rank.val }}</span>
+      <span class="text-slate-400 text-sm">of {{ users|length }} players</span>
+    </div>
+  </div>
+  <div class="text-right">
+    <p class="text-slate-400 text-sm">Total score</p>
+    <p class="text-3xl font-extrabold {% if user.total_score > 0 %}text-amber-400{% else %}text-slate-400{% endif %} mt-1">
+      {{ user.total_score }} pts
+    </p>
+  </div>
+  <div class="text-5xl ml-4">
+    {% if my_rank.val == 1 %}🥇{% elif my_rank.val == 2 %}🥈{% elif my_rank.val == 3 %}🥉{% else %}🎯{% endif %}
+  </div>
+</div>
+
+
+{# ── Podium: top 3 ──────────────────────────────────────────────────────── #}
+{% if users|length >= 2 %}
+<div class="mb-10">
+  <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">Top Players</h2>
+
+  {% set p1 = users[0] if users|length > 0 else none %}
+  {% set p2 = users[1] if users|length > 1 else none %}
+  {% set p3 = users[2] if users|length > 2 else none %}
+
+  <div class="flex items-end justify-center gap-4">
+
+    {# 2nd place #}
+    {% if p2 %}
+    <div class="flex-1 max-w-[180px]">
+      <div class="glass border border-slate-700/50 rounded-2xl p-5 text-center
+                  {% if p2.id == user.id %}border-amber-500/30 bg-amber-500/5{% endif %}
+                  h-40 flex flex-col items-center justify-center">
+        <div class="w-12 h-12 rounded-full bg-slate-500/40 border-2 border-slate-400 flex items-center justify-center
+                    text-lg font-extrabold text-slate-200 mb-2">
+          {{ p2.username[0].upper() }}
+        </div>
+        <p class="font-bold text-sm text-white truncate max-w-full px-2">{{ p2.username }}</p>
+        <p class="text-slate-300 font-bold text-lg mt-1">{{ p2.total_score }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">{{ correct_counts.get(p2.id, 0) }} correct</p>
+      </div>
+      <div class="bg-slate-400/20 border border-slate-600/30 rounded-b-lg py-2 text-center">
+        <span class="text-2xl">🥈</span>
+      </div>
+    </div>
+    {% endif %}
+
+    {# 1st place – tallest #}
+    {% if p1 %}
+    <div class="flex-1 max-w-[200px]">
+      <div class="rounded-2xl p-5 text-center border-2
+                  {% if p1.id == user.id %}border-amber-400{% else %}border-amber-500/50{% endif %}
+                  bg-gradient-to-b from-amber-500/10 to-amber-500/5 h-52 flex flex-col items-center justify-center
+                  shadow-xl shadow-amber-500/10">
+        <div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center
+                    text-xl font-extrabold text-amber-400 mb-2">
+          {{ p1.username[0].upper() }}
+        </div>
+        <p class="font-extrabold text-base text-white truncate max-w-full px-2">{{ p1.username }}</p>
+        <p class="text-amber-400 font-extrabold text-2xl mt-1">{{ p1.total_score }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">{{ correct_counts.get(p1.id, 0) }} correct</p>
+      </div>
+      <div class="bg-amber-500/20 border border-amber-500/30 rounded-b-lg py-2 text-center">
+        <span class="text-2xl">🥇</span>
+      </div>
+    </div>
+    {% endif %}
+
+    {# 3rd place #}
+    {% if p3 %}
+    <div class="flex-1 max-w-[180px]">
+      <div class="glass border border-slate-700/50 rounded-2xl p-5 text-center
+                  {% if p3.id == user.id %}border-amber-500/30 bg-amber-500/5{% endif %}
+                  h-36 flex flex-col items-center justify-center">
+        <div class="w-12 h-12 rounded-full bg-amber-700/30 border-2 border-amber-700/60 flex items-center justify-center
+                    text-lg font-extrabold text-amber-600 mb-2">
+          {{ p3.username[0].upper() }}
+        </div>
+        <p class="font-bold text-sm text-white truncate max-w-full px-2">{{ p3.username }}</p>
+        <p class="text-slate-300 font-bold text-lg mt-1">{{ p3.total_score }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">{{ correct_counts.get(p3.id, 0) }} correct</p>
+      </div>
+      <div class="bg-amber-700/20 border border-amber-700/30 rounded-b-lg py-2 text-center">
+        <span class="text-2xl">🥉</span>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endif %}
+
+
+{# ── Full leaderboard table ──────────────────────────────────────────────── #}
+<div>
+  <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Full Standings</h2>
+
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <table class="w-full">
+      <thead>
+        <tr class="border-b border-slate-700/50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          <th class="text-center px-5 py-3 w-12">Rank</th>
+          <th class="text-left px-4 py-3">Player</th>
+          <th class="text-center px-4 py-3 hidden sm:table-cell">Correct</th>
+          <th class="text-right px-5 py-3">Score</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-700/30">
+        {% for u in users %}
+        {% set rank = loop.index %}
+        <tr class="transition-colors hover:bg-slate-700/20
+                   {% if u.id == user.id %}bg-amber-500/5{% endif %}">
+          <td class="text-center px-5 py-4">
+            {% if rank == 1 %}<span class="text-2xl">🥇</span>
+            {% elif rank == 2 %}<span class="text-2xl">🥈</span>
+            {% elif rank == 3 %}<span class="text-2xl">🥉</span>
+            {% else %}<span class="text-slate-500 font-bold text-sm">{{ rank }}</span>{% endif %}
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold flex-shrink-0
+                          {% if u.id == user.id %}bg-amber-500/20 text-amber-400 border border-amber-500/30
+                          {% else %}bg-slate-700 text-slate-300{% endif %}">
+                {{ u.username[0].upper() }}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-semibold text-sm {% if u.id == user.id %}text-amber-400{% else %}text-white{% endif %}">
+                    {{ u.username }}
+                  </span>
+                  {% if u.id == user.id %}
+                  <span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-full">you</span>
+                  {% endif %}
+                  {% if u.is_admin %}
+                  <span class="text-[10px] bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded-full">admin</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="text-center px-4 py-4 hidden sm:table-cell">
+            <span class="text-sm text-slate-300 font-medium">{{ correct_counts.get(u.id, 0) }}</span>
+            <span class="text-slate-600 text-xs ml-0.5">✓</span>
+          </td>
+          <td class="text-right px-5 py-4">
+            <span class="text-lg font-extrabold
+              {% if u.total_score > 0 %}text-amber-400
+              {% elif u.total_score < 0 %}text-red-400
+              {% else %}text-slate-500{% endif %}">
+              {{ u.total_score }}
+            </span>
+            <span class="text-slate-600 text-xs ml-0.5">pts</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+{# ── Scoring reference ───────────────────────────────────────────────────── #}
+<div class="mt-8 glass border border-slate-700/50 rounded-2xl p-5">
+  <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Scoring Guide</h3>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    {% for label, pts, color in [
+        ('Group Stage','10 pts','text-slate-300'),
+        ('Round of 16','20 pts','text-blue-400'),
+        ('Quarter-Final','40 pts','text-violet-400'),
+        ('Semi-Final','160 pts','text-orange-400'),
+        ('3rd Place','80 pts','text-emerald-400'),
+        ('Final','320 pts','text-amber-400'),
+        ('Upset bonus','×1.5','text-green-400'),
+        ('Wrong guess','−5 pts','text-red-400'),
+    ] %}
+    <div class="bg-slate-800/50 rounded-xl px-3 py-2.5 flex items-center justify-between">
+      <span class="text-xs text-slate-400">{{ label }}</span>
+      <span class="text-xs font-bold {{ color }}">{{ pts }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

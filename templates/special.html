@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Special Events – WC Predict{% endblock %}
+
+{% block content %}
+
+<div class="mb-8">
+  <h1 class="text-3xl font-extrabold text-white">Special Events</h1>
+  <p class="text-slate-400 text-sm mt-1">Bonus questions — <span class="text-amber-400 font-semibold">50 pts</span> each</p>
+</div>
+
+{% if not events %}
+<div class="glass border border-slate-700/50 rounded-2xl p-16 text-center text-slate-500">
+  <div class="text-4xl mb-3">🌟</div>
+  <p>No special events yet. Check back soon!</p>
+</div>
+{% endif %}
+
+<div class="grid gap-6 md:grid-cols-2">
+{% for event in events %}
+{% set user_ans = user_answers.get(event.id) %}
+{% set closed = event.deadline <= now %}
+{% set resolved = event.correct_answer is not none %}
+
+<div class="relative glass border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-200
+            {% if not closed and not resolved %}hover:border-slate-600/70 hover:shadow-xl hover:shadow-black/40{% endif %}"
+     x-data="{
+       selected: '{{ user_ans.answer|replace("'", "\\'") if user_ans else '' }}',
+       deadline: new Date('{{ event.deadline.strftime('%Y-%m-%dT%H:%M:%SZ') }}'),
+       countdown: '',
+       closed: {{ 'true' if closed else 'false' }},
+       init() {
+         this.tick();
+         if (!this.closed) setInterval(() => this.tick(), 1000);
+       },
+       tick() {
+         const diff = this.deadline - new Date();
+         if (diff <= 0) { this.countdown = 'Closed'; this.closed = true; return; }
+         const d = Math.floor(diff / 86400000);
+         const h = Math.floor((diff % 86400000) / 3600000);
+         const m = Math.floor((diff % 3600000) / 60000);
+         const s = Math.floor((diff % 60000) / 1000);
+         this.countdown = d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${s}s`;
+       }
+     }">
+
+  {# Closed overlay #}
+  {% if closed and not resolved %}
+  <div class="absolute inset-0 bg-slate-900/60 rounded-2xl flex items-center justify-center z-10 backdrop-blur-[2px]">
+    <div class="bg-slate-800/90 border border-slate-600/50 rounded-xl px-6 py-3 text-center">
+      <div class="text-xl mb-1">🔒</div>
+      <span class="text-slate-300 font-bold text-sm uppercase tracking-widest">Closed</span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Card header #}
+  <div class="px-6 pt-5 pb-4 border-b border-slate-700/40">
+    <div class="flex items-start justify-between gap-3">
+      <h2 class="text-lg font-extrabold text-white leading-tight">{{ event.title }}</h2>
+      <div class="flex-shrink-0">
+        {% if resolved %}
+        <span class="inline-flex items-center gap-1 bg-green-500/10 text-green-400 border border-green-500/20
+                     text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+          ✓ Resolved
+        </span>
+        {% elif closed %}
+        <span class="inline-flex items-center gap-1 bg-slate-700/60 text-slate-400 border border-slate-600/40
+                     text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+          Closed
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20
+                     text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+          ● Open
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if event.description %}
+    <p class="text-slate-400 text-sm mt-2">{{ event.description }}</p>
+    {% endif %}
+
+    {# Countdown #}
+    <div class="flex items-center gap-2 mt-3">
+      <span class="text-[10px] text-slate-500">⏱</span>
+      {% if resolved %}
+      <span class="text-[11px] text-green-400 font-semibold">Correct: {{ event.correct_answer }}</span>
+      {% elif closed %}
+      <span class="text-[11px] text-slate-500">Deadline passed</span>
+      {% else %}
+      <span class="text-[11px] text-amber-400 font-semibold" x-text="'Closes in ' + countdown"></span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="px-6 py-5">
+
+    {# Resolved answer display #}
+    {% if resolved %}
+    <div class="bg-green-500/8 border border-green-500/20 rounded-xl px-4 py-3 mb-4 text-sm text-center">
+      <span class="text-slate-400">Correct answer: </span>
+      <span class="font-bold text-green-300">{{ event.correct_answer }}</span>
+    </div>
+    {% endif %}
+
+    {# Options grid #}
+    {% if not closed and not resolved %}
+    {# Active: interactive form #}
+    <form method="POST" action="/special/{{ event.id }}/answer">
+      <div class="grid grid-cols-2 gap-2.5 mb-5">
+        {% for option in event.options %}
+        <label class="cursor-pointer">
+          <input type="radio" name="answer" value="{{ option }}" class="sr-only"
+                 x-model="selected"
+                 {% if user_ans and user_ans.answer == option %}checked{% endif %} />
+          <div :class="selected === '{{ option|replace("'", "\\'") }}'
+                    ? 'ring-2 ring-amber-400 bg-amber-500/10 border-amber-400/50'
+                    : 'border-slate-700/50 hover:border-slate-500 hover:bg-slate-700/30'"
+               class="border-2 rounded-xl px-3 py-3 text-center text-sm font-semibold text-white
+                      transition-all duration-150 min-h-[52px] flex items-center justify-center">
+            {{ option }}
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+
+      <button type="submit"
+              :disabled="!selected"
+              :class="selected
+                ? 'from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 cursor-pointer shadow-md shadow-amber-500/20'
+                : 'from-slate-600 to-slate-600 opacity-40 cursor-not-allowed'"
+              class="w-full bg-gradient-to-r text-slate-900 font-bold text-sm py-3 rounded-xl transition-all duration-200">
+        {% if user_ans %}Update Answer{% else %}Submit Answer{% endif %}
+      </button>
+    </form>
+
+    {% else %}
+    {# Closed/resolved: read-only display #}
+    <div class="grid grid-cols-2 gap-2.5">
+      {% for option in event.options %}
+      {% set is_user_pick = user_ans and user_ans.answer == option %}
+      {% set is_correct = resolved and option == event.correct_answer %}
+      <div class="rounded-xl px-3 py-3 text-center text-sm font-semibold min-h-[52px] flex flex-col items-center justify-center gap-1 border
+        {% if is_user_pick and is_correct %}bg-green-500/10 border-green-500/40 text-green-300
+        {% elif is_user_pick and resolved %}bg-red-500/10 border-red-500/40 text-red-300
+        {% elif is_user_pick %}bg-amber-500/10 border-amber-500/40 text-amber-300
+        {% elif is_correct %}bg-green-500/5 border-green-500/20 text-green-400
+        {% else %}bg-slate-800/40 border-slate-700/30 text-slate-500{% endif %}">
+        {{ option }}
+        {% if is_user_pick and is_correct %}<span class="text-[10px]">✅ Your pick</span>
+        {% elif is_user_pick and resolved %}<span class="text-[10px]">❌ Your pick</span>
+        {% elif is_user_pick %}<span class="text-[10px] text-amber-400">⏳ Your pick</span>
+        {% elif is_correct %}<span class="text-[10px] text-green-400">✓ Correct</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Points earned display #}
+    {% if user_ans and user_ans.points_earned is not none %}
+    <div class="mt-4 glass border border-slate-700/40 rounded-xl px-4 py-3 text-center text-sm">
+      <span class="text-slate-400">Points earned: </span>
+      <span class="font-extrabold text-lg {% if user_ans.points_earned > 0 %}text-green-400{% else %}text-slate-400{% endif %}">
+        {% if user_ans.points_earned > 0 %}+{% endif %}{{ user_ans.points_earned }}
+      </span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}

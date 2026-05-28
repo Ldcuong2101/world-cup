@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}Predict – {{ match.team_home.name }} vs {{ match.team_away.name }}{% endblock %}
+
+{% block content %}
+
+{# ── Derived values (no backend changes needed) ───────────────────────────── #}
+{% set home_raw = (match.home_strength_rating * 100)|round|int %}
+{% set home_pct = [home_raw, 5]|max %}
+{% set home_pct = [home_pct, 73]|min %}
+{% set draw_pct = 22 %}
+{% set away_pct = 100 - home_pct - draw_pct %}
+{% set stage_pts = {'group':10,'r32':15,'r16':20,'r8':40,'semi':160,'r4':80,'final':320} %}
+{% set pts = stage_pts.get(match.stage, 10) %}
+{% set home_is_underdog = match.home_strength_rating < 0.45 %}
+{% set away_is_underdog = match.home_strength_rating > 0.55 %}
+
+<style>
+  @keyframes heroFadeIn {
+    from { opacity:0; transform:translateY(-10px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .hero-animate { animation: heroFadeIn .5s ease-out forwards; }
+</style>
+
+<div x-data="{
+  selected: '{{ existing.predicted_winner_id if existing else '' }}',
+  homeId:   '{{ match.team_home_id }}',
+  awayId:   '{{ match.team_away_id }}',
+  tab:      'prediction'
+}">
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   1. MATCH HERO
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div class="relative -mx-4 -mt-8 overflow-hidden" style="min-height:280px">
+
+  {# Pitch background #}
+  <div class="absolute inset-0"
+       style="background:radial-gradient(ellipse 150% 100% at 50% -5%,#0b2214 0%,#0f172a 58%)"></div>
+
+  {# Grass stripe texture #}
+  <div class="absolute inset-0"
+       style="background-image:repeating-linear-gradient(0deg,transparent,transparent 34px,rgba(255,255,255,.035) 34px,rgba(255,255,255,.035) 36px)"></div>
+
+  {# Subtle centre-circle glow #}
+  <div class="absolute inset-0"
+       style="background:radial-gradient(ellipse 50% 60% at 50% 60%,rgba(255,255,255,.03) 0%,transparent 70%)"></div>
+
+  {# Bottom fade into body #}
+  <div class="absolute bottom-0 left-0 right-0 h-20"
+       style="background:linear-gradient(to bottom,transparent,#0f172a)"></div>
+
+  {# Hero content #}
+  <div class="relative z-10 max-w-6xl mx-auto px-4 pt-5 pb-10 flex flex-col items-center hero-animate">
+
+    {# Back link #}
+    <div class="w-full flex justify-start mb-5">
+      <a href="/matches"
+         class="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-200 text-sm transition-colors">
+        ← Back to Matches
+      </a>
+    </div>
+
+    {# Competition label #}
+    <p class="text-slate-400 text-[11px] uppercase tracking-widest text-center">
+      FIFA World Cup 2026™
+      {% if match.group_name %} &nbsp;·&nbsp; Group Stage &nbsp;·&nbsp; {{ match.group_name }}
+      {% elif match.round_name %} &nbsp;·&nbsp; {{ match.round_name }}
+      {% endif %}
+    </p>
+    <p class="text-slate-400 text-sm text-center mt-1 mb-8">
+      {{ (match.match_date|local).strftime('%b %d, %Y') }}
+      &nbsp;·&nbsp;
+      {{ (match.match_date|local).strftime('%H:%M') }}
+      {% if match.rating_home is not none and match.rating_away is not none %}
+      &nbsp;·&nbsp;
+      <span class="text-amber-400/80 font-mono font-semibold">{{ match.rating_home|fmt_rating }} : {{ match.rating_away|fmt_rating }}</span>
+      {% endif %}
+    </p>
+
+    {# Teams VS row #}
+    <div class="w-full flex items-center justify-center gap-4 sm:gap-16 max-w-2xl">
+
+      {# Home team #}
+      <div class="flex flex-col items-center gap-2 text-center flex-1">
+        <img src="https://flagcdn.com/w80/{{ match.team_home.flag_code }}.png"
+             alt="{{ match.team_home.name }}"
+             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40">
+        <span class="font-extrabold text-lg sm:text-2xl text-white leading-tight mt-1">
+          {{ match.team_home.name }}
+        </span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Home</span>
+      </div>
+
+      {# VS watermark #}
+      <div class="flex-shrink-0 select-none leading-none"
+           style="font-size:clamp(3rem,8vw,5.5rem);font-weight:900;color:rgba(255,255,255,0.07)">
+        VS
+      </div>
+
+      {# Away team #}
+      <div class="flex flex-col items-center gap-2 text-center flex-1">
+        <img src="https://flagcdn.com/w80/{{ match.team_away.flag_code }}.png"
+             alt="{{ match.team_away.name }}"
+             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40">
+        <span class="font-extrabold text-lg sm:text-2xl text-white leading-tight mt-1">
+          {{ match.team_away.name }}
+        </span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Away</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   2. STICKY TAB BAR
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div class="sticky top-14 z-30 -mx-4 px-4 border-b border-slate-700/50"
+     style="background:rgba(15,23,42,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)">
+  <div class="max-w-6xl mx-auto flex">
+    <button @click="tab = 'prediction'"
+            :class="tab === 'prediction'
+              ? 'text-white border-b-2 border-amber-400'
+              : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300'"
+            class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
+      Prediction
+    </button>
+    <button @click="tab = 'stats'"
+            :class="tab === 'stats'
+              ? 'text-white border-b-2 border-amber-400'
+              : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300'"
+            class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
+      Stats
+    </button>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   3. PREDICTION TAB
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div x-show="tab === 'prediction'" class="mt-6">
+<div class="lg:grid lg:grid-cols-[3fr_2fr] gap-6">
+
+  {# ── Left column ──────────────────────────────────────────────────────────── #}
+  <div class="space-y-5">
+
+    {# Win Probability #}
+    <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-6">
+      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-4">Win Probability</p>
+
+      {# Three percentages #}
+      <div class="flex justify-between text-center mb-4">
+        <div class="flex-1">
+          <p class="text-xs text-slate-500 mb-1 leading-tight">{{ match.team_home.name }}</p>
+          <p class="text-2xl sm:text-3xl font-extrabold text-green-400">{{ home_pct }}%</p>
+        </div>
+        <div class="flex-1">
+          <p class="text-xs text-slate-500 mb-1">Draw</p>
+          <p class="text-2xl sm:text-3xl font-extrabold text-slate-400">{{ draw_pct }}%</p>
+        </div>
+        <div class="flex-1">
+          <p class="text-xs text-slate-500 mb-1 leading-tight">{{ match.team_away.name }}</p>
+          <p class="text-2xl sm:text-3xl font-extrabold text-red-400">{{ away_pct }}%</p>
+        </div>
+      </div>
+
+      {# Segmented bar #}
+      <div class="flex h-2.5 rounded-full overflow-hidden gap-px">
+        <div class="bg-green-500 rounded-l-full transition-all duration-700"
+             style="width:{{ home_pct }}%"></div>
+        <div class="bg-slate-500 transition-all duration-700"
+             style="width:{{ draw_pct }}%"></div>
+        <div class="bg-red-500 rounded-r-full flex-1"></div>
+      </div>
+
+      <div class="flex justify-between text-[10px] mt-2 text-slate-600">
+        <span>Home win</span>
+        <span>Draw</span>
+        <span>Away win</span>
+      </div>
+    </div>
+
+
+    {# Prediction form #}
+    <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-6">
+      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-4">Your Prediction</p>
+
+      {% if existing %}
+      <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2.5 mb-4 text-xs text-center text-blue-300">
+        Current pick:
+        <span class="font-bold">
+          {% if existing.predicted_winner_id == match.team_home_id %}{{ match.team_home.name }}
+          {% else %}{{ match.team_away.name }}{% endif %}
+        </span>
+        &mdash; update your pick below
+      </div>
+      {% endif %}
+
+      <form id="pred-form" method="POST" action="/predict/{{ match.id }}">
+
+        {# Team selection cards #}
+        <div class="grid grid-cols-2 gap-4 mb-5">
+
+          {# Home card #}
+          <label class="cursor-pointer">
+            <input type="radio" name="predicted_winner_id" value="{{ match.team_home_id }}"
+                   x-model="selected" class="sr-only"
+                   {% if existing and existing.predicted_winner_id == match.team_home_id %}checked{% endif %} />
+            <div :class="selected === homeId
+                    ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/30 shadow-lg shadow-amber-500/10'
+                    : 'border-slate-600 bg-slate-800/60 hover:border-slate-400'"
+                 class="border-2 rounded-xl p-4 sm:p-6 text-center transition-all duration-200 flex flex-col items-center gap-2.5 h-full">
+              <img src="https://flagcdn.com/w80/{{ match.team_home.flag_code }}.png"
+                   alt="{{ match.team_home.name }}"
+                   class="h-14 sm:h-16 w-auto rounded shadow-md">
+              <span class="font-bold text-sm sm:text-base leading-tight text-white">
+                {{ match.team_home.name }}
+              </span>
+              <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold bg-slate-700/60 px-2.5 py-0.5 rounded-full">
+                Home
+              </span>
+              {% if home_is_underdog %}
+              <span class="text-[10px] text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                ⚡ Upset bonus
+              </span>
+              {% endif %}
+            </div>
+          </label>
+
+          {# Away card #}
+          <label class="cursor-pointer">
+            <input type="radio" name="predicted_winner_id" value="{{ match.team_away_id }}"
+                   x-model="selected" class="sr-only"
+                   {% if existing and existing.predicted_winner_id == match.team_away_id %}checked{% endif %} />
+            <div :class="selected === awayId
+                    ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/30 shadow-lg shadow-amber-500/10'
+                    : 'border-slate-600 bg-slate-800/60 hover:border-slate-400'"
+                 class="border-2 rounded-xl p-4 sm:p-6 text-center transition-all duration-200 flex flex-col items-center gap-2.5 h-full">
+              <img src="https://flagcdn.com/w80/{{ match.team_away.flag_code }}.png"
+                   alt="{{ match.team_away.name }}"
+                   class="h-14 sm:h-16 w-auto rounded shadow-md">
+              <span class="font-bold text-sm sm:text-base leading-tight text-white">
+                {{ match.team_away.name }}
+              </span>
+              <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold bg-slate-700/60 px-2.5 py-0.5 rounded-full">
+                Away
+              </span>
+              {% if away_is_underdog %}
+              <span class="text-[10px] text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                ⚡ Upset bonus
+              </span>
+              {% endif %}
+            </div>
+          </label>
+
+        </div>
+
+        {# Scoring info box #}
+        <div class="bg-slate-800/60 border border-slate-700/40 rounded-xl px-4 py-3 mb-5 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">⚡ Correct prediction</span>
+            <span class="font-bold text-green-400">+{{ pts }} pts</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">⚠️ Wrong prediction</span>
+            <span class="font-bold text-red-400">−5 pts</span>
+          </div>
+          <div x-show="(selected === homeId && {{ 'true' if home_is_underdog else 'false' }}) || (selected === awayId && {{ 'true' if away_is_underdog else 'false' }})"
+               class="flex items-center justify-between pt-2 border-t border-slate-700/40">
+            <span class="text-amber-400 font-semibold">🔥 Upset bonus active!</span>
+            <span class="font-bold text-amber-400">×1.5</span>
+          </div>
+        </div>
+
+        {# Desktop submit button (hidden on mobile — fixed button below handles it) #}
+        <button type="submit"
+                :disabled="!selected"
+                :class="selected
+                  ? 'from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 cursor-pointer shadow-lg shadow-amber-500/20'
+                  : 'from-slate-700 to-slate-700 cursor-not-allowed opacity-40'"
+                class="hidden sm:flex w-full bg-gradient-to-r items-center justify-center gap-2
+                       font-bold py-4 rounded-xl text-slate-900 text-base transition-all duration-200">
+          <span x-show="selected">
+            {% if existing %}✓ Update Prediction{% else %}⚡ Confirm Pick{% endif %}
+          </span>
+          <span x-show="!selected" class="text-slate-500">Select a team first</span>
+        </button>
+
+      </form>
+    </div>
+
+  </div>{# end left column #}
+
+
+  {# ── Right column ─────────────────────────────────────────────────────────── #}
+  <div class="mt-5 lg:mt-0 space-y-5">
+
+    {# Group standings (placeholder — standings data not passed to this route) #}
+    <div class="glass border border-slate-700/50 rounded-2xl p-5">
+      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-3">
+        {% if match.group_name %}Standings &nbsp;·&nbsp; {{ match.group_name }}
+        {% else %}Tournament Bracket{% endif %}
+      </p>
+      <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
+        <span class="text-4xl mb-1">📊</span>
+        <p class="text-slate-300 text-sm font-semibold">Group standings update after each match</p>
+        <p class="text-slate-500 text-xs">Check back as the tournament progresses</p>
+        <a href="/matches"
+           class="mt-2 text-amber-400 hover:text-amber-300 text-xs font-semibold transition-colors inline-flex items-center gap-1">
+          View all matches →
+        </a>
+      </div>
+    </div>
+
+    {# Community predictions (derived from win probability as a proxy) #}
+
+
+  </div>{# end right column #}
+
+</div>
+</div>{# end prediction tab #}
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   4. STATS TAB
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div x-show="tab === 'stats'" class="mt-6">
+  <div class="glass border border-slate-700/50 rounded-2xl flex flex-col items-center justify-center
+              text-center py-16 px-6 min-h-[220px]">
+    <span class="text-5xl mb-4">⏰</span>
+    <p class="text-slate-200 font-bold text-lg">Stats available closer to kickoff</p>
+    <p class="text-slate-500 text-sm mt-1.5">Head-to-head records, form guide, and lineups coming soon</p>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   MOBILE: Fixed confirm button (sm and below)
+   ══════════════════════════════════════════════════════════════════════════════ #}
+<div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-6"
+     style="background:linear-gradient(to top,rgba(15,23,42,1) 55%,transparent);
+            padding-bottom:max(16px,env(safe-area-inset-bottom))">
+  <button type="button"
+          @click="selected && document.getElementById('pred-form').submit()"
+          :class="selected
+            ? 'from-amber-400 to-amber-500 shadow-xl shadow-amber-500/30 cursor-pointer'
+            : 'from-slate-700 to-slate-700 opacity-40 cursor-not-allowed'"
+          class="w-full bg-gradient-to-r font-bold py-4 rounded-xl text-slate-900 text-base
+                 transition-all duration-200 flex items-center justify-center gap-2">
+    <span x-show="selected">
+      {% if existing %}✓ Update Prediction{% else %}⚡ Confirm Pick{% endif %}
+    </span>
+    <span x-show="!selected" class="text-slate-500">Select a team first</span>
+  </button>
+</div>
+
+{# Spacer so the fixed button doesn't cover the last form element on mobile #}
+<div class="sm:hidden h-24"></div>
+
+</div>{# end Alpine wrapper #}
+
+{% endblock %}

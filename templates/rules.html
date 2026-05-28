@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Luật chơi – WC Predict{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     DISCLAIMER BANNER
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <div class="border-l-4 border-amber-400 border border-amber-500/50 rounded-2xl p-6 sm:p-8"
+       style="background: linear-gradient(135deg, rgba(120,53,15,.45) 0%, rgba(124,45,18,.30) 100%)">
+    <p class="text-[11px] font-bold uppercase tracking-widest text-amber-400 mb-3">⚠️ Lưu ý quan trọng</p>
+    <div class="flex gap-4 items-start">
+      <span class="text-3xl shrink-0 mt-0.5">🎉</span>
+      <p class="text-amber-100 text-base leading-relaxed">
+        Đây là ứng dụng dự đoán bóng đá để <strong class="text-amber-300">vui vẻ cùng bạn bè và đồng nghiệp</strong>
+        — hoàn toàn miễn phí, không có giải thưởng tiền mặt, không khuyến khích cá cược
+        dưới bất kỳ hình thức nào. Hãy chơi vui vẻ và có trách nhiệm! 🙏
+      </p>
+    </div>
+  </div>
+
+  {# ── Page header ──────────────────────────────────────────────────────── #}
+  <div class="pt-2">
+    <h1 class="text-4xl font-black text-white">Luật chơi</h1>
+    <div class="w-16 h-1 bg-amber-400 mt-2 mb-3 rounded-full"></div>
+    <p class="text-slate-300 text-base">World Cup 2026 Prediction Game</p>
+  </div>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     1. CÁCH DỰ ĐOÁN
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="glass border border-slate-700/50 border-t-2 border-t-blue-500 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-5">
+      <span class="text-3xl">⚡</span>
+      <h2 class="text-2xl font-bold text-white">1. Cách dự đoán</h2>
+    </div>
+    <ul class="space-y-4">
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Mỗi trận đấu, bạn chọn <strong class="text-white">đội bạn nghĩ sẽ thắng sau kèo chấp</strong>.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Deadline dự đoán là <strong class="text-white">giờ trận đấu bắt đầu</strong>. Sau đó không thể thay đổi.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Chưa dự đoán trận nào = <strong class="text-white">không có điểm</strong> (không bị trừ).
+        </span>
+      </li>
+    </ul>
+  </section>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     2. KÈO CHẤP
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="glass border border-slate-700/50 border-t-2 border-t-amber-500 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-5">
+      <span class="text-3xl">⚖️</span>
+      <h2 class="text-2xl font-bold text-white">2. Kèo chấp (Rating)</h2>
+    </div>
+
+    <p class="text-slate-200 text-base leading-relaxed mb-6">
+      Mỗi trận có kèo chấp dạng
+      <span class="font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-sm">Home : Away</span>.
+      Kết quả tính điểm = <strong class="text-white">bàn thắng thực tế + kèo chấp</strong>.
+    </p>
+
+    {# Formula box #}
+    <div class="bg-slate-900 rounded-xl p-6 mb-6">
+      <p class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-4">Công thức</p>
+      <div class="space-y-2">
+        <div class="font-mono text-base text-slate-200 leading-loose">
+          Điểm sau kèo (<span class="text-blue-400">Home</span>) = Bàn thắng <span class="text-blue-400">Home</span> + Kèo <span class="text-blue-400">Home</span>
+        </div>
+        <div class="font-mono text-base text-slate-200 leading-loose">
+          Điểm sau kèo (<span class="text-orange-400">Away</span>) = Bàn thắng <span class="text-orange-400">Away</span> + Kèo <span class="text-orange-400">Away</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-700/60 font-mono text-base leading-loose">
+          <span class="text-slate-400">→ Đội nào điểm cao hơn = </span><span class="text-green-400 font-bold">thắng kèo</span>
+        </div>
+        <div class="font-mono text-base leading-loose">
+          <span class="text-slate-400">→ Nếu bằng nhau = </span><span class="text-slate-300">hòa kèo</span><span class="text-slate-500"> (không cộng / không trừ điểm)</span>
+        </div>
+      </div>
+    </div>
+
+    {# Examples #}
+    <div class="space-y-4">
+
+      {# Example 1 #}
+      <div class="border border-green-500/30 bg-green-500/5 rounded-xl p-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-green-400 mb-3">✅ Ví dụ 1 — Chọn đúng</p>
+        <div class="space-y-2 text-base">
+          <div class="text-slate-300">
+            Kèo: <span class="font-semibold"><span class="text-blue-400">Pháp</span> 0 : 1.5 <span class="text-orange-400">Iceland</span></span>
+          </div>
+          <div class="text-slate-300">
+            Kết quả thực: <strong class="text-white">Pháp 2 – Iceland 0</strong>
+          </div>
+          <div class="font-mono text-sm bg-slate-900/60 px-4 py-2 rounded-lg text-slate-300">
+            <span class="text-blue-400">Pháp</span>: 2 + 0 = <strong class="text-white">2</strong>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="text-orange-400">Iceland</span>: 0 + 1.5 = <strong class="text-white">1.5</strong>
+          </div>
+          <div class="text-green-400 font-bold text-base">
+            <span class="text-xl">✅</span> 2 &gt; 1.5 → Pháp thắng kèo — Người chọn Pháp được điểm
+          </div>
+        </div>
+      </div>
+
+      {# Example 2 #}
+      <div class="border border-amber-500/30 bg-amber-500/5 rounded-xl p-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">🔄 Ví dụ 2 — Đảo chiều vì kèo</p>
+        <div class="space-y-2 text-base">
+          <div class="text-slate-300">
+            Kèo: <span class="font-semibold"><span class="text-blue-400">Pháp</span> 0 : 2.5 <span class="text-orange-400">Iceland</span></span>
+          </div>
+          <div class="text-slate-300">
+            Kết quả thực: <strong class="text-white">Pháp 2 – Iceland 0</strong>
+          </div>
+          <div class="font-mono text-sm bg-slate-900/60 px-4 py-2 rounded-lg text-slate-300">
+            <span class="text-blue-400">Pháp</span>: 2 + 0 = <strong class="text-white">2</strong>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="text-orange-400">Iceland</span>: 0 + 2.5 = <strong class="text-white">2.5</strong>
+          </div>
+          <div class="text-amber-400 font-bold text-base">
+            <span class="text-xl">⚠️</span> 2 &lt; 2.5 → Iceland thắng kèo — Người chọn Iceland được điểm dù thua thực tế!
+          </div>
+        </div>
+      </div>
+
+      {# Example 3 #}
+      <div class="border border-slate-600/40 bg-slate-700/10 rounded-xl p-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">➖ Ví dụ 3 — Hòa kèo</p>
+        <div class="space-y-2 text-base">
+          <div class="text-slate-300">
+            Kèo: <span class="font-semibold"><span class="text-blue-400">Pháp</span> 0 : 2 <span class="text-orange-400">Iceland</span></span>
+          </div>
+          <div class="text-slate-300">
+            Kết quả thực: <strong class="text-white">Pháp 2 – Iceland 0</strong>
+          </div>
+          <div class="font-mono text-sm bg-slate-900/60 px-4 py-2 rounded-lg text-slate-300">
+            <span class="text-blue-400">Pháp</span>: 2 + 0 = <strong class="text-white">2</strong>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="text-orange-400">Iceland</span>: 0 + 2 = <strong class="text-white">2</strong>
+          </div>
+          <div class="text-slate-300 font-bold text-base">
+            ➖ 2 = 2 → Hòa kèo — Không cộng / không trừ điểm cho tất cả
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     3. BẢNG ĐIỂM
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="glass border border-slate-700/50 border-t-2 border-t-green-500 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-6">
+      <span class="text-3xl">🏆</span>
+      <h2 class="text-2xl font-bold text-white">3. Bảng điểm</h2>
+    </div>
+
+    {# Quick-reference table #}
+    <div class="overflow-x-auto mb-6">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <th class="text-left px-4 py-3 text-sm font-bold text-amber-400 uppercase tracking-wider rounded-l-xl">Vòng đấu</th>
+            <th class="text-center px-4 py-3 text-sm font-bold text-green-400 uppercase tracking-wider">Đúng</th>
+            <th class="text-center px-4 py-3 text-sm font-bold text-red-400 uppercase tracking-wider">Sai</th>
+            <th class="text-center px-4 py-3 text-sm font-bold text-slate-400 uppercase tracking-wider rounded-r-xl">Hòa kèo</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/40">
+          {% for stage, label, pts in [
+            ('group', 'Vòng bảng',    10),
+            ('r32',   'Vòng 32',      15),
+            ('r16',   'Vòng 16',      20),
+            ('r8',    'Tứ kết',       40),
+            ('semi',  'Bán kết',     160),
+            ('r4',    'Hạng 3',       80),
+            ('final', 'Chung kết',   320),
+          ] %}
+          <tr class="{% if loop.index is odd %}bg-slate-800/40{% else %}bg-slate-700/20{% endif %} hover:bg-slate-700/40 transition-colors">
+            <td class="px-4 py-3.5">
+              <span class="badge-{{ stage }} text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                {{ label }}
+              </span>
+            </td>
+            <td class="text-center px-4 py-3.5 font-bold text-green-400 text-base">+{{ pts }}</td>
+            <td class="text-center px-4 py-3.5 font-bold text-red-400 text-base">–5</td>
+            <td class="text-center px-4 py-3.5 text-slate-500 text-base">0</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     4. SỰ KIỆN ĐẶC BIỆT
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="glass border border-slate-700/50 border-t-2 border-t-purple-500 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-5">
+      <span class="text-3xl">🌟</span>
+      <h2 class="text-2xl font-bold text-white">4. Sự kiện đặc biệt</h2>
+    </div>
+    <ul class="space-y-4">
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Các câu hỏi đặc biệt: Vua phá lưới, đội ghi nhiều bàn nhất, v.v.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-green-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Đoán đúng: <strong class="text-green-400 text-lg">+50 điểm</strong>
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-slate-500 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Đoán sai: <strong class="text-slate-400">0 điểm</strong> — không bị trừ điểm
+        </span>
+      </li>
+    </ul>
+  </section>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     5. XẾP HẠNG
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="glass border border-slate-700/50 border-t-2 border-t-slate-400 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-5">
+      <span class="text-3xl">📊</span>
+      <h2 class="text-2xl font-bold text-white">5. Xếp hạng</h2>
+    </div>
+    <ul class="space-y-4">
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Xếp theo <strong class="text-white">tổng điểm tích lũy</strong> của tất cả trận.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-amber-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Điểm được cập nhật <strong class="text-white">ngay sau khi admin nhập kết quả</strong> từng trận.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-red-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Tổng điểm có thể <strong class="text-red-400">âm</strong> nếu đoán sai nhiều trận liên tiếp.
+        </span>
+      </li>
+    </ul>
+  </section>
+
+  {# CTA #}
+  <div class="text-center py-4 pb-8">
+    <a href="/matches"
+       class="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900
+              font-bold px-8 py-4 rounded-2xl text-base hover:from-amber-300 hover:to-amber-400
+              transition-all shadow-xl shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5">
+      ⚡ Bắt đầu dự đoán ngay
+    </a>
+  </div>
+
+</div>
+{% endblock %}

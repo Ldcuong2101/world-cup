@@ -1,0 +1,590 @@
+{% extends "base.html" %}
+{% block title %}Admin – WC Predict{% endblock %}
+
+{% block content %}
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.store('adminFilters', { search: '', stage: 'all', status: 'all' });
+  Alpine.store('matchPhase', { phase: 'pre' });
+  Alpine.store('toasts', {
+    list: [],
+    add(msg, type = 'success') {
+      const id = Date.now() + Math.random();
+      this.list.push({ id, msg, type, visible: true });
+      setTimeout(() => {
+        const t = this.list.find(t => t.id === id);
+        if (t) t.visible = false;
+        setTimeout(() => { this.list = this.list.filter(t => t.id !== id); }, 350);
+      }, 3500);
+    }
+  });
+  window.$toast = (msg, type) => Alpine.store('toasts').add(msg, type);
+});
+</script>
+
+<style>
+.prob-slider { -webkit-appearance:none; appearance:none; height:6px; border-radius:3px; cursor:pointer; outline:none; width:100%; }
+.prob-slider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#f59e0b; cursor:pointer; border:3px solid #0f172a; }
+.prob-slider::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#f59e0b; cursor:pointer; border:3px solid #0f172a; }
+.badge-r32 { background:#0e7490; color:#cffafe; }
+[x-cloak] { display:none !important; }
+</style>
+
+{# ── Toast container ──────────────────────────────────────────────────────── #}
+<div class="fixed bottom-6 right-6 z-[9999] flex flex-col-reverse gap-2 items-end pointer-events-none" x-data>
+  <template x-for="t in $store.toasts.list" :key="t.id">
+    <div x-show="t.visible"
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-3 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+         :class="{'border-green-500/40 text-green-200 bg-green-950/95':t.type==='success','border-red-500/40 text-red-200 bg-red-950/95':t.type==='error','border-blue-500/40 text-blue-200 bg-blue-950/95':t.type==='info','border-amber-500/40 text-amber-200 bg-amber-950/95':t.type==='warning'}"
+         class="pointer-events-auto border rounded-xl px-4 py-3 text-sm font-medium shadow-2xl backdrop-blur max-w-xs"
+         x-text="t.msg"></div>
+  </template>
+</div>
+
+{# ── Page header ──────────────────────────────────────────────────────────── #}
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-extrabold text-white">Admin Panel</h1>
+    <p class="text-slate-400 text-sm mt-1">Manage matches, ratings and special events</p>
+  </div>
+  <div class="flex items-center gap-2 glass border border-amber-500/20 rounded-xl px-4 py-2">
+    <div class="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-extrabold text-amber-400">{{ user.username[0].upper() }}</div>
+    <span class="text-sm font-semibold text-amber-300">{{ user.username }}</span>
+    <span class="text-[10px] text-amber-500/60 bg-amber-500/10 px-1.5 py-0.5 rounded-full ml-1">ADMIN</span>
+  </div>
+</div>
+
+<div x-data="{ tab: 'matches' }">
+
+{# ── Top tab bar ──────────────────────────────────────────────────────────── #}
+<div class="flex gap-2 mb-6 border-b border-slate-700/50">
+  <button type="button" @click="tab='matches'"
+          :class="tab==='matches' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-white'"
+          class="px-4 py-2.5 text-sm font-semibold transition-colors -mb-px">
+    Matches <span class="ml-1 text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full">{{ matches|length }}</span>
+  </button>
+  <button type="button" @click="tab='events'"
+          :class="tab==='events' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-white'"
+          class="px-4 py-2.5 text-sm font-semibold transition-colors -mb-px">
+    Special Events <span class="ml-1 text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full">{{ events|length }}</span>
+  </button>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   MATCHES TAB
+════════════════════════════════════════════════════════════════════════════ #}
+<div x-show="tab==='matches'">
+
+  {# Phase sub-tabs #}
+  <div class="flex gap-1 mb-4 bg-slate-900/50 border border-slate-700/50 rounded-xl p-1 w-fit" x-data>
+    <button type="button" @click="$store.matchPhase.phase='pre'"
+            :class="$store.matchPhase.phase==='pre' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'"
+            class="px-5 py-2 text-sm rounded-lg transition-all">
+      Truoc Tran
+    </button>
+    <button type="button" @click="$store.matchPhase.phase='post'"
+            :class="$store.matchPhase.phase==='post' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'"
+            class="px-5 py-2 text-sm rounded-lg transition-all">
+      Sau Tran
+    </button>
+  </div>
+
+  {# Filter bar #}
+  <div class="glass border border-slate-700/50 rounded-2xl p-4 mb-5 flex flex-wrap gap-3 items-center" x-data>
+    <input type="text" placeholder="Search teams..."
+           @input="$store.adminFilters.search = $event.target.value"
+           class="flex-1 min-w-48 bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition placeholder-slate-500">
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <span class="text-[10px] text-slate-500 uppercase tracking-widest shrink-0">Stage:</span>
+      {% for sk, sl in [('all','All'),('group','Group'),('r32','R32'),('r16','R16'),('r8','QF'),('semi','SF'),('r4','3rd'),('final','Final')] %}
+      <button type="button" @click="$store.adminFilters.stage='{{ sk }}'"
+              :class="$store.adminFilters.stage==='{{ sk }}' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600'"
+              class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all">{{ sl }}</button>
+      {% endfor %}
+    </div>
+    <div class="flex items-center gap-1.5">
+      <span class="text-[10px] text-slate-500 uppercase tracking-widest shrink-0">Status:</span>
+      {% for sk, sl in [('all','All'),('upcoming','Soon'),('live','Live'),('done','Done')] %}
+      <button type="button" @click="$store.adminFilters.status='{{ sk }}'"
+              :class="$store.adminFilters.status==='{{ sk }}' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600'"
+              class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all">{{ sl }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     PRE-MATCH LIST
+  ══════════════════════════════════════════════════════════════════════════ #}
+  <div x-show="$store.matchPhase.phase==='pre'" x-data class="space-y-3">
+  {% for match in matches %}
+  {%- set home_name = match.team_home.name if match.team_home else (match.team_home_label or 'TBD') -%}
+  {%- set away_name = match.team_away.name if match.team_away else (match.team_away_label or 'TBD') -%}
+  {%- set match_status = 'done' if match.score_home is not none else ('live' if match.match_date <= now else 'upcoming') -%}
+  {%- set local_date = (match.match_date|local).strftime('%Y-%m-%dT%H:%M') -%}
+
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden"
+       x-data="{
+         status: '{{ match_status }}',
+         homeName: {{ home_name|jsattr }},
+         awayName: {{ away_name|jsattr }},
+         strength: {{ (match.home_strength_rating * 100)|int }},
+         sp: {{ (match.home_strength_rating * 100)|int }},
+         tf: '0', dp: 20, hwp: 50, awp: 30,
+         init() {
+           const upd = v => {
+             this.sp = Math.min(70, Math.max(30, v));
+             this.tf = ((this.sp - 30) / 40 * 100).toFixed(1);
+             this.dp = Math.max(5, Math.round(30 * (1 - 1.8 * Math.abs(this.sp / 100 - 0.5))));
+             this.hwp = Math.round(this.sp / 100 * (100 - this.dp));
+             this.awp = 100 - this.hwp - this.dp;
+           };
+           upd(this.strength);
+           this.$watch('strength', upd);
+         }
+       }"
+       x-show="
+         ($store.adminFilters.search==='' || (homeName+' '+awayName).toLowerCase().includes($store.adminFilters.search.toLowerCase()))
+         && ($store.adminFilters.stage==='all' || '{{ match.stage }}'===$store.adminFilters.stage)
+         && ($store.adminFilters.status==='all' || $store.adminFilters.status===status)
+       ">
+
+    {# Top row #}
+    <div class="px-5 pt-4 pb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span class="badge-{{ match.stage }} text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shrink-0{% if match.stage=='final' %} pulse-gold{% endif %}">
+        {{ STAGE_LABELS.get(match.stage, match.stage) }}
+      </span>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        <span class="font-bold text-white text-sm">{{ home_name }}</span>
+        <span class="text-slate-600 text-xs px-1">—</span>
+        <span class="font-bold text-white text-sm">{{ away_name }}</span>
+        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-slate-400 text-xs">{{ (match.match_date|local).strftime('%Y-%m-%d %H:%M') }}</span>
+        {% if match_status == 'done' %}<span class="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">Done {{ match.score_home }}-{{ match.score_away }}</span>
+        {% elif match_status == 'live' %}<span class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
+        {% else %}<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">Soon</span>{% endif %}
+      </div>
+    </div>
+
+    {# PRE-MATCH forms #}
+    <div class="px-5 py-4 space-y-5 border-t border-slate-700/40">
+
+      {# 1. Match Time #}
+      <div>
+        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Gio Thi Dau (UTC+7)</span>
+        <form method="POST" action="/admin/match/{{ match.id }}/time" class="flex items-center gap-2 flex-wrap">
+          <input type="datetime-local" name="match_date"
+                 value="{{ local_date }}"
+                 class="flex-1 min-w-48 bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+          <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition shrink-0">
+            Luu gio
+          </button>
+        </form>
+      </div>
+
+      {# 2. Rating + Probability #}
+      <form method="POST" action="/admin/match/{{ match.id }}/prematch">
+        <div class="space-y-4">
+          <div>
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Keo Chap</span>
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-1.5 shrink-0">
+                {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_home.flag_code }}.png" class="h-4 w-auto rounded-sm">{% endif %}
+                <span class="text-sm font-bold text-blue-400" x-text="homeName"></span>
+              </div>
+              <input type="number" name="rating_home" step="0.25" min="0"
+                     value="{{ match.rating_home|fmt_rating if match.rating_home is not none else '' }}"
+                     placeholder="0"
+                     class="w-20 bg-slate-900/70 border border-amber-700/50 rounded-xl px-3 py-2 text-center text-amber-300 text-lg font-bold focus:outline-none focus:border-amber-500 transition">
+              <span class="text-slate-500 font-bold text-xl shrink-0">:</span>
+              <input type="number" name="rating_away" step="0.25" min="0"
+                     value="{{ match.rating_away|fmt_rating if match.rating_away is not none else '' }}"
+                     placeholder="0"
+                     class="w-20 bg-slate-900/70 border border-amber-700/50 rounded-xl px-3 py-2 text-center text-amber-300 text-lg font-bold focus:outline-none focus:border-amber-500 transition">
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-sm font-bold text-slate-400" x-text="awayName"></span>
+                {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_away.flag_code }}.png" class="h-4 w-auto rounded-sm">{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Xac Suat Thang</span>
+            <div class="flex justify-between text-xs mb-2">
+              <span class="text-blue-400 font-semibold" x-text="homeName + ' ' + hwp + '%'"></span>
+              <span class="text-slate-500 text-[11px]" x-text="'Hoa ' + dp + '%'"></span>
+              <span class="text-slate-400 font-semibold" x-text="awp + '% ' + awayName"></span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-blue-400 text-[10px] font-bold shrink-0" x-text="homeName"></span>
+              <input type="range" name="home_strength_rating" min="30" max="70" step="1"
+                     value="{{ (match.home_strength_rating * 100)|int }}"
+                     x-model.number="strength"
+                     :style="'background:linear-gradient(to right,#3b82f6 '+tf+'%,#475569 '+tf+'%)'"
+                     class="prob-slider flex-1">
+              <span class="text-slate-400 text-[10px] font-bold shrink-0" x-text="awayName"></span>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-1 border-t border-slate-700/30">
+            <button type="submit" class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition">
+              Luu cap do
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {# 3. Media (collapsible) #}
+      <div x-data="{ open: {{ 'true' if match.youtube_url or match.players_note or match.preview_text else 'false' }} }"
+           class="border-t border-slate-700/30 pt-4">
+        <button type="button" @click="open=!open"
+                class="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors w-full text-left">
+          <span x-text="open ? '▾' : '▸'" class="text-amber-500 font-bold text-sm"></span>
+          <span class="font-semibold">Media & Ghi chu (tuy chon)</span>
+          {% if match.youtube_url or match.players_note or match.preview_text %}
+          <span class="ml-auto text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Da luu</span>
+          {% endif %}
+        </button>
+        <form x-show="open" method="POST" action="/admin/match/{{ match.id }}/media" class="mt-3 space-y-3">
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1">YouTube Preview URL</label>
+            <input type="url" name="youtube_url"
+                   value="{{ match.youtube_url or '' }}"
+                   placeholder="https://youtube.com/..."
+                   class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1">Cau thu dang xem</label>
+            <input type="text" name="players_note"
+                   value="{{ match.players_note or '' }}"
+                   placeholder="Mbappe, Ronaldo, ..."
+                   class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1">Ghi chu truoc tran</label>
+            <textarea name="preview_text" rows="2" placeholder="Preview ngan..."
+                      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition resize-none">{{ match.preview_text or '' }}</textarea>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+              Luu media
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>{# end pre forms #}
+  </div>
+  {% endfor %}
+  </div>{# end PRE list #}
+
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     POST-MATCH LIST
+  ══════════════════════════════════════════════════════════════════════════ #}
+  <div x-show="$store.matchPhase.phase==='post'" x-cloak x-data class="space-y-3">
+  {% for match in matches %}
+  {%- set home_name = match.team_home.name if match.team_home else (match.team_home_label or 'TBD') -%}
+  {%- set away_name = match.team_away.name if match.team_away else (match.team_away_label or 'TBD') -%}
+  {%- set match_status = 'done' if match.score_home is not none else ('live' if match.match_date <= now else 'upcoming') -%}
+
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden"
+       x-data="{
+         status: '{{ match_status }}',
+         homeName: {{ home_name|jsattr }},
+         awayName: {{ away_name|jsattr }},
+         rh: {{ match.rating_home or 0 }},
+         ra: {{ match.rating_away or 0 }},
+         scoreHome: {{ (match.score_home|string if match.score_home is not none else '')|jsattr }},
+         scoreAway: {{ (match.score_away|string if match.score_away is not none else '')|jsattr }},
+         hasET: {{ 'true' if match.result and match.result.is_extra_time else 'false' }},
+         hasPen: {{ 'true' if match.result and match.result.is_penalties else 'false' }},
+         highlightUrl: {{ (match.highlight_url or '')|jsattr }},
+         matchSummary: {{ (match.match_summary or '')|jsattr }},
+         winner: null,
+         fetchLoading: false,
+         init() {
+           const upd = () => {
+             const sh = parseFloat(this.scoreHome), sa = parseFloat(this.scoreAway);
+             if (isNaN(sh) || isNaN(sa)) { this.winner = null; return; }
+             const adjH = sh + this.rh, adjA = sa + this.ra;
+             if (adjH > adjA) this.winner = 'home';
+             else if (adjA > adjH) this.winner = 'away';
+             else this.winner = 'draw';
+           };
+           upd();
+           this.$watch('scoreHome', upd);
+           this.$watch('scoreAway', upd);
+         }
+       }"
+       x-show="
+         ($store.adminFilters.search==='' || (homeName+' '+awayName).toLowerCase().includes($store.adminFilters.search.toLowerCase()))
+         && ($store.adminFilters.stage==='all' || '{{ match.stage }}'===$store.adminFilters.stage)
+         && ($store.adminFilters.status==='all' || $store.adminFilters.status===status)
+       ">
+
+    {# Top row #}
+    <div class="px-5 pt-4 pb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span class="badge-{{ match.stage }} text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shrink-0{% if match.stage=='final' %} pulse-gold{% endif %}">
+        {{ STAGE_LABELS.get(match.stage, match.stage) }}
+      </span>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        <span class="font-bold text-white text-sm">{{ home_name }}</span>
+        <span class="text-slate-600 text-xs px-1">—</span>
+        <span class="font-bold text-white text-sm">{{ away_name }}</span>
+        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-slate-400 text-xs">{{ (match.match_date|local).strftime('%Y-%m-%d %H:%M') }}</span>
+        {% if match_status == 'done' %}<span class="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
+          Done {{ match.score_home }}-{{ match.score_away }}{% if match.result and match.result.is_penalties %} PEN{% elif match.result and match.result.is_extra_time %} ET{% endif %}
+        </span>
+        {% elif match_status == 'live' %}<span class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
+        {% else %}<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">Soon</span>{% endif %}
+      </div>
+    </div>
+
+    {# POST-MATCH forms #}
+    <div class="px-5 py-4 space-y-5 border-t border-slate-700/40">
+
+      {# 1. Result #}
+      <form method="POST" action="/admin/match/{{ match.id }}/result">
+        <div class="space-y-3">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">Ket Qua</span>
+
+          {# Main score #}
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-slate-500 text-[11px] font-bold w-8 shrink-0" x-text="hasET ? 'AET' : '90\''"></span>
+            <input type="number" name="score_home" min="0" max="30" placeholder="—"
+                   value="{{ match.score_home if match.score_home is not none else '' }}"
+                   x-model="scoreHome"
+                   class="w-16 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2.5 text-center text-white text-2xl font-extrabold focus:outline-none focus:border-amber-500 transition">
+            <span class="text-slate-500 font-bold text-2xl">-</span>
+            <input type="number" name="score_away" min="0" max="30" placeholder="—"
+                   value="{{ match.score_away if match.score_away is not none else '' }}"
+                   x-model="scoreAway"
+                   class="w-16 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2.5 text-center text-white text-2xl font-extrabold focus:outline-none focus:border-amber-500 transition">
+            <div class="flex items-center gap-3 ml-1">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" name="is_extra_time" value="on"
+                       {% if match.result and match.result.is_extra_time %}checked{% endif %}
+                       :checked="hasET" @change="hasET=$event.target.checked"
+                       class="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 focus:ring-0">
+                <span class="text-[11px] text-blue-400 font-bold select-none">ET</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" name="is_penalties" value="on"
+                       {% if match.result and match.result.is_penalties %}checked{% endif %}
+                       :checked="hasPen" @change="hasPen=$event.target.checked"
+                       class="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 focus:ring-0">
+                <span class="text-[11px] text-purple-400 font-bold select-none">PEN</span>
+              </label>
+            </div>
+          </div>
+
+          {# ET row #}
+          <div class="flex items-center gap-3" x-show="hasET">
+            <span class="text-blue-400 text-[11px] font-bold w-8 shrink-0">ET</span>
+            <input type="number" name="score_home_et" min="0" max="30" placeholder="—"
+                   value="{{ match.result.score_home_et if match.result and match.result.score_home_et is not none else '' }}"
+                   class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-1.5 text-center text-blue-300 text-sm font-bold focus:outline-none focus:border-blue-500 transition">
+            <span class="text-slate-500 font-bold">-</span>
+            <input type="number" name="score_away_et" min="0" max="30" placeholder="—"
+                   value="{{ match.result.score_away_et if match.result and match.result.score_away_et is not none else '' }}"
+                   class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-1.5 text-center text-blue-300 text-sm font-bold focus:outline-none focus:border-blue-500 transition">
+            <span class="text-[10px] text-slate-500">Tong sau hiep phu</span>
+          </div>
+
+          {# PEN row #}
+          <div class="flex items-center gap-3" x-show="hasPen">
+            <span class="text-purple-400 text-[11px] font-bold w-8 shrink-0">PEN</span>
+            <input type="number" name="score_home_pen" min="0" max="30" placeholder="—"
+                   value="{{ match.result.score_home_pen if match.result and match.result.score_home_pen is not none else '' }}"
+                   class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-1.5 text-center text-purple-300 text-sm font-bold focus:outline-none focus:border-purple-500 transition">
+            <span class="text-slate-500 font-bold">-</span>
+            <input type="number" name="score_away_pen" min="0" max="30" placeholder="—"
+                   value="{{ match.result.score_away_pen if match.result and match.result.score_away_pen is not none else '' }}"
+                   class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-1.5 text-center text-purple-300 text-sm font-bold focus:outline-none focus:border-purple-500 transition">
+            <span class="text-[10px] text-slate-500">Penalty shootout</span>
+          </div>
+
+          {# Winner preview + buttons #}
+          <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-700/30">
+            <div class="text-xs min-w-0">
+              <template x-if="winner==='home'"><span class="text-green-400 font-bold">Winner: <span x-text="homeName"></span></span></template>
+              <template x-if="winner==='away'"><span class="text-green-400 font-bold">Winner: <span x-text="awayName"></span></span></template>
+              <template x-if="winner==='draw'"><span class="text-slate-400 italic">Hoa keo – 0 diem</span></template>
+              <template x-if="winner===null"><span class="text-slate-600 italic">Nhap diem de xem ket qua keo</span></template>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button"
+                      :disabled="fetchLoading"
+                      :class="fetchLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600/60'"
+                      @click="
+                        fetchLoading=true;
+                        fetch('/admin/match/{{ match.id }}/fetch-score')
+                          .then(r=>r.json())
+                          .then(d=>{
+                            if(d.score_home!==undefined){
+                              scoreHome=String(d.score_home);
+                              scoreAway=String(d.score_away);
+                              window.$toast('Fetched '+d.score_home+'-'+d.score_away+'. Review and save.','info');
+                            } else { window.$toast(d.error||'Error','error'); }
+                            fetchLoading=false;
+                          })
+                          .catch(()=>{ window.$toast('Network error','error'); fetchLoading=false; })
+                      "
+                      class="border border-slate-600 text-slate-400 text-xs font-medium px-3 py-2 rounded-xl transition-all">
+                <span x-text="fetchLoading ? 'Fetching...' : 'Fetch Score'"></span>
+              </button>
+              <button type="submit"
+                      class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition">
+                Luu ket qua
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {# 2. Highlight & Summary #}
+      <form method="POST" action="/admin/match/{{ match.id }}/highlight"
+            class="border-t border-slate-700/30 pt-4 space-y-3">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Highlight & Tom Tat</span>
+          {% if match.highlight_url %}<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Da luu</span>{% endif %}
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 mb-1">YouTube Highlight URL</label>
+          <input type="url" name="highlight_url"
+                 value="{{ match.highlight_url or '' }}"
+                 placeholder="https://youtube.com/..."
+                 class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 mb-1">Tom tat tran dau</label>
+          <textarea name="match_summary" rows="2" placeholder="Tom tat ngan..."
+                    class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition resize-none">{{ match.match_summary or '' }}</textarea>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+            Luu highlight
+          </button>
+        </div>
+      </form>
+
+    </div>{# end post forms #}
+  </div>
+  {% endfor %}
+  </div>{# end POST list #}
+
+</div>{# end matches tab #}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   SPECIAL EVENTS TAB
+════════════════════════════════════════════════════════════════════════════ #}
+<div x-show="tab==='events'" x-cloak x-data="{ showCreate: false, opts: ['', ''] }">
+
+  {% if events %}
+  <div class="space-y-3 mb-6">
+    {% for event in events %}
+    <div class="glass border border-slate-700/50 rounded-2xl p-5">
+      <div class="flex items-start gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="font-bold text-white">{{ event.title }}</h3>
+            {% if event.correct_answer %}
+            <span class="bg-green-500/10 text-green-400 border border-green-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full">Correct: {{ event.correct_answer }}</span>
+            {% endif %}
+          </div>
+          {% if event.description %}<p class="text-slate-400 text-xs mt-1">{{ event.description }}</p>{% endif %}
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            {% for opt in event.options %}
+            <span class="text-[11px] {% if event.correct_answer == opt %}bg-green-500/20 text-green-300 border border-green-500/30{% else %}bg-slate-700/60 text-slate-400{% endif %} px-2 py-0.5 rounded-full">{{ opt }}</span>
+            {% endfor %}
+          </div>
+          <p class="text-[11px] text-slate-600 mt-2">Deadline: {{ (event.deadline|local).strftime('%b %d, %H:%M') }}</p>
+        </div>
+        {% if not event.correct_answer %}
+        <form method="POST" action="/admin/special/{{ event.id }}/answer"
+              class="flex items-center gap-2 shrink-0"
+              x-data="{ loading: false }"
+              @submit.prevent="if(confirm('Set correct answer and award points?')){ loading=true; $el.submit(); }">
+          <select name="correct_answer" required
+                  class="bg-slate-900/60 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs font-medium focus:outline-none focus:border-amber-500 transition">
+            <option value="">Choose answer...</option>
+            {% for opt in event.options %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+          </select>
+          <button type="submit" :disabled="loading" class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-3 py-2 rounded-xl text-xs transition">
+            <span x-text="loading ? 'Awarding...' : 'Set & Award'"></span>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="glass border border-slate-700/50 rounded-2xl p-8 text-center text-slate-500 text-sm mb-6">No special events yet</div>
+  {% endif %}
+
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <button type="button" @click="showCreate=!showCreate"
+            class="w-full flex items-center justify-between px-5 py-4 text-sm font-semibold text-white hover:bg-slate-700/30 transition-colors">
+      <span>+ Create New Special Event</span>
+      <svg :class="showCreate ? 'rotate-180' : ''" class="w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+    <div x-show="showCreate" class="px-5 pb-5 border-t border-slate-700/40">
+      <form method="POST" action="/admin/special/create" class="mt-4 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Title</label>
+            <input type="text" name="title" required placeholder="Who will be top scorer?"
+                   class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Deadline</label>
+            <input type="datetime-local" name="deadline" required
+                   class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">Description (optional)</label>
+          <input type="text" name="description" placeholder="Describe the event..."
+                 class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-2">Answer Options (min 2)</label>
+          <div class="space-y-2">
+            <template x-for="(opt, i) in opts" :key="i">
+              <div class="flex gap-2">
+                <input type="text" x-model="opts[i]" :placeholder="'Option ' + (i+1)"
+                       class="flex-1 bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+                <button type="button" @click="opts.splice(i,1)" x-show="opts.length > 2"
+                        class="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-lg font-bold">x</button>
+              </div>
+            </template>
+          </div>
+          <input type="hidden" name="options" :value="opts.filter(o=>o.trim()).join(',')">
+          <button type="button" @click="opts.push('')" class="mt-2 text-xs text-amber-400 hover:text-amber-300 transition">+ Add option</button>
+        </div>
+        <button type="submit"
+                class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-5 py-2.5 rounded-xl text-sm transition">
+          Create Event
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+</div>{# end tab wrapper #}
+{% endblock %}
