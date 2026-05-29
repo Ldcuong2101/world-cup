@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -12,9 +13,12 @@ from auth import (
     get_current_user, SESSION_COOKIE,
 )
 from scoring import compute_match_predictions, compute_special_event, is_predicted_underdog
-from config import STAGE_LABELS, STAGE_ORDER
+from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY
+from signup import router as signup_router
 
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.include_router(signup_router)
 templates = Jinja2Templates(directory="templates")
 
 _UTC7 = timedelta(hours=7)

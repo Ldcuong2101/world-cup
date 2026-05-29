@@ -17,5 +17,16 @@ def get_db():
 
 
 def init_db():
-    from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result  # noqa
+    from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, PendingRegistration  # noqa
+    from sqlalchemy import text
     Base.metadata.create_all(bind=engine)
+    # Add new columns to existing tables without a migration tool
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE users ADD COLUMN email TEXT",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
