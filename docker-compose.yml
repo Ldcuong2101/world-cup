@@ -3,9 +3,11 @@ services:
     build: .
     container_name: wc-predict
     ports:
-      - "8000:8000"
+      - "11111:8000"
     volumes:
-      - wc-data:/app/worldcup.db
+      - wc-data:/app/data
+    environment:
+      - DB_PATH=/app/data/worldcup.db
     env_file:
       - .env
     restart: unless-stopped
