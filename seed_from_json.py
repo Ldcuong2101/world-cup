@@ -10,7 +10,7 @@ from database import SessionLocal, engine, Base
 from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer
 from auth import hash_password
 
-METADATA_DIR = os.path.join(os.path.dirname(__file__), "..", "metadata")
+METADATA_DIR = os.path.join(os.path.dirname(__file__), "metadata")
 TEAMS_JSON = os.path.join(METADATA_DIR, "worldcup.teams_meta.json")
 MATCHES_JSON = os.path.join(METADATA_DIR, "worldcup.json")
 

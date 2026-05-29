@@ -7,12 +7,26 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False)
     total_score = Column(Integer, default=0)
 
     predictions = relationship("Prediction", back_populates="user")
     special_answers = relationship("SpecialEventAnswer", back_populates="user")
+
+
+class PendingRegistration(Base):
+    __tablename__ = "pending_registrations"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, nullable=False)
+    password_hash = Column(String, nullable=False)
+    otp_code = Column(String(6), nullable=False)
+    otp_expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0)
+    last_sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False)
 
 
 class Team(Base):
