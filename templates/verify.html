@@ -58,7 +58,7 @@
     <div class="rounded-2xl border border-slate-700/60 p-7"
          style="background:rgba(30,41,59,.7);backdrop-filter:blur(16px)">
 
-      <form method="POST" action="/verify" @submit.prevent="submitForm()">
+      <form method="POST" action="/verify" @submit="loading = true">
 
         {# 6-box OTP input #}
         <div class="mb-6">
@@ -186,22 +186,16 @@
           });
         },
 
-        submitForm() {
-          if (this.digits.join('').length < 6) return;
-          this.loading = true;
-          this.$el.querySelector('form').submit();
-        },
-
         async resend() {
           if (this.cooldown > 0 || this.resending) return;
           this.resending = true;
           this.resendSuccess = false;
+          this.startCooldown(60);
           try {
             const res = await fetch('/resend-otp', { method: 'POST' });
             const data = await res.json();
             if (data.success) {
               this.resendSuccess = true;
-              this.startCooldown(60);
               setTimeout(() => this.resendSuccess = false, 4000);
             } else {
               alert(data.error || 'Failed to resend. Please try again.');
