@@ -11,6 +11,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False)
     total_score = Column(Integer, default=0)
+    stars_remaining = Column(Integer, default=3)
 
     predictions = relationship("Prediction", back_populates="user")
     special_answers = relationship("SpecialEventAnswer", back_populates="user")
@@ -103,6 +104,7 @@ class Prediction(Base):
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     predicted_winner_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     points_earned = Column(Integer, nullable=True)
+    use_star = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="predictions")
     match = relationship("Match", back_populates="predictions")

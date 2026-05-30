@@ -5,10 +5,10 @@ STAGE_POINTS = {
     "group": 10,
     "r32": 15,
     "r16": 20,
-    "r8": 40,
-    "r4": 80,
-    "semi": 160,
-    "final": 320,
+    "r8": 30,
+    "r4": 40,
+    "semi": 50,
+    "final": 70,
 }
 
 STAGE_LABELS = {
@@ -23,6 +23,5 @@ STAGE_LABELS = {
 
 STAGE_ORDER = ["group", "r32", "r16", "r8", "semi", "r4", "final"]
 
-UPSET_BONUS_MULTIPLIER = 1.5
-WRONG_GUESS_PENALTY = -5
-UNDERDOG_THRESHOLD = 0.45
+STAR_COUNT = 3          # stars each user gets for the tournament
+STAR_MULTIPLIER = 2     # star doubles both reward and penalty

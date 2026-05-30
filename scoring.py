@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer
-from config import STAGE_POINTS, UPSET_BONUS_MULTIPLIER, WRONG_GUESS_PENALTY, UNDERDOG_THRESHOLD
+from config import STAGE_POINTS, STAR_MULTIPLIER
 
 
 def _get_effective_winner(match: Match):
@@ -15,7 +15,7 @@ def _get_effective_winner(match: Match):
         return match.team_home_id
     elif adj_away > adj_home:
         return match.team_away_id
-    return None  # handicap draw → no points awarded or deducted
+    return None  # handicap draw → 0 pts
 
 
 def compute_match_predictions(db: Session, match: Match) -> None:
@@ -28,12 +28,15 @@ def compute_match_predictions(db: Session, match: Match) -> None:
     predictions = db.query(Prediction).filter(Prediction.match_id == match.id).all()
 
     for pred in predictions:
+        star = bool(pred.use_star)
+        multiplier = STAR_MULTIPLIER if star else 1
+
         if effective_winner is None:
-            earned = 0  # handicap draw
+            earned = 0  # handicap draw — star has no effect
         elif pred.predicted_winner_id == effective_winner:
-            earned = int(base_points * UPSET_BONUS_MULTIPLIER) if is_predicted_underdog(match, pred.predicted_winner_id) else base_points
+            earned = int(base_points * multiplier)
         else:
-            earned = WRONG_GUESS_PENALTY
+            earned = -base_points * multiplier  # penalty = same magnitude as reward
 
         old_points = pred.points_earned or 0
         pred.points_earned = earned
@@ -43,17 +46,6 @@ def compute_match_predictions(db: Session, match: Match) -> None:
             user.total_score = (user.total_score or 0) - old_points + earned
 
     db.commit()
-
-
-def is_predicted_underdog(match: Match, predicted_winner_id: int) -> bool:
-    """Return True if the predicted winner is the underdog based on home_strength_rating."""
-    home_strong = match.home_strength_rating >= (1 - UNDERDOG_THRESHOLD)
-    home_weak = match.home_strength_rating <= UNDERDOG_THRESHOLD
-    if home_strong and predicted_winner_id == match.team_away_id:
-        return True
-    if home_weak and predicted_winner_id == match.team_home_id:
-        return True
-    return False
 
 
 def compute_special_event(db: Session, event: SpecialEvent) -> None:

@@ -12,7 +12,7 @@ from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
 )
-from scoring import compute_match_predictions, compute_special_event, is_predicted_underdog
+from scoring import compute_match_predictions, compute_special_event
 from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY
 from signup import router as signup_router
 
@@ -188,6 +188,7 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
         "flash_cat": cat,
         "groups_sorted": groups_sorted,
         "STAGE_LABELS": STAGE_LABELS,
+        "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
     })
     resp.delete_cookie("flash_msg")
     resp.delete_cookie("flash_cat")
@@ -221,6 +222,7 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "existing": existing,
         "now": now,
         "can_predict": can_predict,
+        "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
     })
 
 
@@ -229,6 +231,7 @@ async def predict_submit(
     match_id: int,
     request: Request,
     predicted_winner_id: int = Form(...),
+    use_star: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
@@ -246,19 +249,38 @@ async def predict_submit(
     if predicted_winner_id not in [match.team_home_id, match.team_away_id]:
         return redirect(f"/predict/{match_id}", "Invalid team selection", "error")
 
+    want_star = use_star == "on"
+
     existing = db.query(Prediction).filter(
         Prediction.user_id == user.id,
         Prediction.match_id == match_id
     ).first()
 
+    had_star = bool(existing and existing.use_star)
+
+    # Star budget management
+    stars = user.stars_remaining or 0
+    if want_star and not had_star:
+        if stars <= 0:
+            return redirect(f"/predict/{match_id}", "No stars remaining!", "error")
+        user.stars_remaining = stars - 1
+    elif had_star and not want_star:
+        user.stars_remaining = stars + 1  # return the star
+
     if existing:
         existing.predicted_winner_id = predicted_winner_id
+        existing.use_star = want_star
     else:
-        pred = Prediction(user_id=user.id, match_id=match_id, predicted_winner_id=predicted_winner_id)
-        db.add(pred)
+        db.add(Prediction(
+            user_id=user.id,
+            match_id=match_id,
+            predicted_winner_id=predicted_winner_id,
+            use_star=want_star,
+        ))
 
     db.commit()
-    return redirect("/matches", "Prediction saved!", "success")
+    msg = "Star Pick saved!" if want_star else "Prediction saved!"
+    return redirect("/matches", msg, "success")
 
 
 # ─── Ranking ─────────────────────────────────────────────────────────────────

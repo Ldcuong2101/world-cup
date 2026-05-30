@@ -166,6 +166,7 @@
             {% endif %}
           </span>
           <span class="text-yellow-400">⏳</span>
+          {% if pred.use_star %}<span class="text-yellow-400 text-xs">⭐</span>{% endif %}
         </div>
         {% if can_predict %}
         <span class="text-[10px] text-slate-500">tap to change</span>
@@ -181,7 +182,7 @@
           {% if pred.predicted_winner_id == match.team_home_id %}{{ flag_img(match.team_home, match.team_home_label, "h-4") }} {{ match.team_home.name if match.team_home else match.team_home_label }}
           {% else %}{{ flag_img(match.team_away, match.team_away_label, "h-4") }} {{ match.team_away.name if match.team_away else match.team_away_label }}{% endif %}
         </span>
-        <span class="text-green-400 font-bold text-sm">+{{ pred.points_earned }} pts</span>
+        <span class="text-green-400 font-bold text-sm">+{{ pred.points_earned }} pts{% if pred.use_star %} ⭐{% endif %}</span>
       </div>
       {% else %}
       {# Wrong #}
@@ -191,7 +192,7 @@
           {% if pred.predicted_winner_id == match.team_home_id %}{{ flag_img(match.team_home, match.team_home_label, "h-4") }} {{ match.team_home.name if match.team_home else match.team_home_label }}
           {% else %}{{ flag_img(match.team_away, match.team_away_label, "h-4") }} {{ match.team_away.name if match.team_away else match.team_away_label }}{% endif %}
         </span>
-        <span class="text-red-400 font-bold text-sm">{{ pred.points_earned }} pts</span>
+        <span class="text-red-400 font-bold text-sm">{{ pred.points_earned }} pts{% if pred.use_star %} ⭐{% endif %}</span>
       </div>
       {% endif %}
 
@@ -417,6 +418,11 @@
           📊 Groups
         </button>
         {% endif %}
+        <div class="hidden sm:flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-3 py-1" title="Star Picks remaining">
+          {% for i in range(3) %}
+          <span class="text-sm {% if i < stars_remaining %}text-yellow-400{% else %}text-slate-700{% endif %}">⭐</span>
+          {% endfor %}
+        </div>
         <a href="/ranking" class="hidden sm:flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors">
           Leaderboard →
         </a>

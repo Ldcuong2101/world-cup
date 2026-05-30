@@ -26,6 +26,8 @@ def init_db():
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE users ADD COLUMN email TEXT",
+            "ALTER TABLE users ADD COLUMN stars_remaining INTEGER DEFAULT 3",
+            "ALTER TABLE predictions ADD COLUMN use_star BOOLEAN DEFAULT 0",
         ]:
             try:
                 conn.execute(text(stmt))

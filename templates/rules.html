@@ -200,25 +200,26 @@
     </div>
 
     {# Quick-reference table #}
-    <div class="overflow-x-auto mb-6">
+    <div class="overflow-x-auto mb-4">
       <table class="w-full">
         <thead>
           <tr class="bg-amber-500/10 border border-amber-500/20 rounded-xl">
             <th class="text-left px-4 py-3 text-sm font-bold text-amber-400 uppercase tracking-wider rounded-l-xl">Vòng đấu</th>
             <th class="text-center px-4 py-3 text-sm font-bold text-green-400 uppercase tracking-wider">Đúng</th>
             <th class="text-center px-4 py-3 text-sm font-bold text-red-400 uppercase tracking-wider">Sai</th>
+            <th class="text-center px-4 py-3 text-sm font-bold text-yellow-400 uppercase tracking-wider">Sai (Star)</th>
             <th class="text-center px-4 py-3 text-sm font-bold text-slate-400 uppercase tracking-wider rounded-r-xl">Hòa kèo</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-700/40">
           {% for stage, label, pts in [
-            ('group', 'Vòng bảng',    10),
-            ('r32',   'Vòng 32',      15),
-            ('r16',   'Vòng 16',      20),
-            ('r8',    'Tứ kết',       40),
-            ('semi',  'Bán kết',     160),
-            ('r4',    'Hạng 3',       80),
-            ('final', 'Chung kết',   320),
+            ('group', 'Vòng bảng',  10),
+            ('r32',   'Vòng 32',    15),
+            ('r16',   'Vòng 16',    20),
+            ('r8',    'Tứ kết',     30),
+            ('semi',  'Bán kết',    50),
+            ('r4',    'Hạng 3',     40),
+            ('final', 'Chung kết',  70),
           ] %}
           <tr class="{% if loop.index is odd %}bg-slate-800/40{% else %}bg-slate-700/20{% endif %} hover:bg-slate-700/40 transition-colors">
             <td class="px-4 py-3.5">
@@ -227,14 +228,88 @@
               </span>
             </td>
             <td class="text-center px-4 py-3.5 font-bold text-green-400 text-base">+{{ pts }}</td>
-            <td class="text-center px-4 py-3.5 font-bold text-red-400 text-base">–5</td>
+            <td class="text-center px-4 py-3.5 font-bold text-red-400 text-base">–{{ pts }}</td>
+            <td class="text-center px-4 py-3.5 font-bold text-red-400 text-base">–{{ pts * 2 }} ⭐</td>
             <td class="text-center px-4 py-3.5 text-slate-500 text-base">0</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    <p class="text-xs text-slate-500">* Sai = trừ điểm bằng đúng cùng vòng. Star Pick nhân đôi cả thưởng lẫn phạt.</p>
 
+  </section>
+
+  {# ══════════════════════════════════════════════════════════════════════════
+     4. STAR PICK
+     ══════════════════════════════════════════════════════════════════════════ #}
+  <section class="border-2 border-yellow-500/40 bg-yellow-500/5 rounded-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-5">
+      <span class="text-3xl">⭐</span>
+      <h2 class="text-2xl font-bold text-yellow-300">4. Star Pick</h2>
+    </div>
+
+    <p class="text-slate-200 text-base leading-relaxed mb-5">
+      Mỗi người chơi có <strong class="text-yellow-300">3 ngôi sao</strong> cho cả giải đấu.
+      Dùng sao vào một trận để <strong class="text-white">nhân đôi điểm thưởng — và nhân đôi điểm phạt</strong>.
+      Đặt cược khôn ngoan!
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div class="bg-slate-900/60 rounded-xl p-4 text-center border border-slate-700/40">
+        <p class="text-3xl mb-2">⭐⭐⭐</p>
+        <p class="text-white font-bold">3 sao / người</p>
+        <p class="text-slate-500 text-xs mt-1">Cho cả giải đấu</p>
+      </div>
+      <div class="bg-green-500/10 rounded-xl p-4 text-center border border-green-500/20">
+        <p class="text-2xl font-black text-green-400 mb-1">×2</p>
+        <p class="text-white font-bold">Nếu đoán đúng</p>
+        <p class="text-slate-400 text-xs mt-1">Điểm thưởng nhân đôi</p>
+      </div>
+      <div class="bg-red-500/10 rounded-xl p-4 text-center border border-red-500/20">
+        <p class="text-2xl font-black text-red-400 mb-1">×2</p>
+        <p class="text-white font-bold">Nếu đoán sai</p>
+        <p class="text-slate-400 text-xs mt-1">Điểm phạt cũng nhân đôi</p>
+      </div>
+    </div>
+
+    <ul class="space-y-3 mb-5">
+      <li class="flex gap-3 items-start">
+        <span class="text-yellow-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Khi dự đoán, bật nút <strong class="text-yellow-300">Star Pick</strong> để dùng một sao cho trận đó.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-yellow-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Có thể hủy sao trước giờ thi đấu — sao sẽ được <strong class="text-white">hoàn lại</strong>.
+        </span>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="text-yellow-400 font-bold text-lg shrink-0 leading-relaxed">▸</span>
+        <span class="text-slate-200 text-base leading-relaxed">
+          Nếu kèo hòa (handicap draw) → <strong class="text-white">không tính điểm, sao vẫn bị tiêu</strong>.
+        </span>
+      </li>
+    </ul>
+
+    {# Star example #}
+    <div class="bg-slate-900/60 rounded-xl p-5 border border-slate-700/40">
+      <p class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-4">Ví dụ — Vòng bảng (10 điểm)</p>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div class="space-y-2">
+          <p class="text-slate-400 font-semibold text-xs uppercase tracking-wide">Không dùng sao</p>
+          <div class="flex justify-between"><span class="text-slate-300">Đúng</span><span class="font-bold text-green-400">+10 pts</span></div>
+          <div class="flex justify-between"><span class="text-slate-300">Sai</span><span class="font-bold text-red-400">–10 pts</span></div>
+        </div>
+        <div class="space-y-2 border-l border-slate-700/50 pl-3">
+          <p class="text-yellow-400 font-semibold text-xs uppercase tracking-wide">Dùng sao ⭐</p>
+          <div class="flex justify-between"><span class="text-slate-300">Đúng</span><span class="font-bold text-green-400">+20 pts</span></div>
+          <div class="flex justify-between"><span class="text-slate-300">Sai</span><span class="font-bold text-red-400">–20 pts</span></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   {# ══════════════════════════════════════════════════════════════════════════
@@ -243,7 +318,7 @@
   <section class="glass border border-slate-700/50 border-t-2 border-t-purple-500 rounded-2xl p-6 sm:p-8">
     <div class="flex items-center gap-3 mb-5">
       <span class="text-3xl">🌟</span>
-      <h2 class="text-2xl font-bold text-white">4. Sự kiện đặc biệt</h2>
+      <h2 class="text-2xl font-bold text-white">5. Sự kiện đặc biệt</h2>
     </div>
     <ul class="space-y-4">
       <li class="flex gap-3 items-start">
@@ -273,7 +348,7 @@
   <section class="glass border border-slate-700/50 border-t-2 border-t-slate-400 rounded-2xl p-6 sm:p-8">
     <div class="flex items-center gap-3 mb-5">
       <span class="text-3xl">📊</span>
-      <h2 class="text-2xl font-bold text-white">5. Xếp hạng</h2>
+      <h2 class="text-2xl font-bold text-white">6. Xếp hạng</h2>
     </div>
     <ul class="space-y-4">
       <li class="flex gap-3 items-start">

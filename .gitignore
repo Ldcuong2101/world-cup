@@ -1,0 +1,9 @@
+# Database (persisted via Docker bind mount — never commit)
+data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
