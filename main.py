@@ -36,6 +36,19 @@ def _jsattr(val):
     return _json.dumps(val).replace('"', '&quot;')
 templates.env.filters["jsattr"] = _jsattr
 
+import re as _re
+def _youtube_embed(url):
+    """Convert any YouTube URL to an embed URL, or return '' if not parseable."""
+    if not url:
+        return ''
+    m = _re.search(r'youtu\.be/([a-zA-Z0-9_-]+)', url)
+    if not m:
+        m = _re.search(r'[?&]v=([a-zA-Z0-9_-]+)', url)
+    if not m:
+        m = _re.search(r'youtube\.com/embed/([a-zA-Z0-9_-]+)', url)
+    return f'https://www.youtube.com/embed/{m.group(1)}' if m else ''
+templates.env.filters["youtube_embed"] = _youtube_embed
+
 init_db()
 
 
@@ -194,8 +207,7 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=404)
 
     now = datetime.utcnow()
-    if match.match_date <= now:
-        return redirect("/matches", "Prediction deadline has passed", "error")
+    can_predict = match.match_date > now
 
     existing = db.query(Prediction).filter(
         Prediction.user_id == user.id,
@@ -208,6 +220,7 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "match": match,
         "existing": existing,
         "now": now,
+        "can_predict": can_predict,
     })
 
 
@@ -228,7 +241,7 @@ async def predict_submit(
 
     now = datetime.utcnow()
     if match.match_date <= now:
-        return redirect("/matches", "Prediction deadline has passed", "error")
+        return redirect(f"/predict/{match_id}", "Prediction deadline has passed", "error")
 
     if predicted_winner_id not in [match.team_home_id, match.team_away_id]:
         return redirect(f"/predict/{match_id}", "Invalid team selection", "error")
@@ -521,14 +534,25 @@ async def admin_set_result(
     et = is_extra_time == "on"
     pen = is_penalties == "on"
 
-    if sh > sa:
-        winner_id = match.team_home_id
-    elif sa > sh:
-        winner_id = match.team_away_id
-    elif pen:
+    # winner_id = actual match winner (for display/bracket)
+    # score_home/score_away always stores 90-min score (used for handicap prediction scoring)
+    if pen:
         sph = safe_int(score_home_pen) or 0
         spa = safe_int(score_away_pen) or 0
         winner_id = match.team_home_id if sph > spa else match.team_away_id
+    elif et:
+        she = safe_int(score_home_et) if score_home_et.strip() else sh
+        sae = safe_int(score_away_et) if score_away_et.strip() else sa
+        if she is not None and sae is not None and she > sae:
+            winner_id = match.team_home_id
+        elif she is not None and sae is not None and sae > she:
+            winner_id = match.team_away_id
+        else:
+            winner_id = None
+    elif sh > sa:
+        winner_id = match.team_home_id
+    elif sa > sh:
+        winner_id = match.team_away_id
     else:
         winner_id = None  # group-stage draw
 

@@ -3,7 +3,8 @@
 
 {% block content %}
 
-{# ── Derived values (no backend changes needed) ───────────────────────────── #}
+{# ── Derived values ───────────────────────────────────────────────────────── #}
+{% set is_done = match.winner_id is not none %}
 {% set home_raw = (match.home_strength_rating * 100)|round|int %}
 {% set home_pct = [home_raw, 5]|max %}
 {% set home_pct = [home_pct, 73]|min %}
@@ -26,116 +27,191 @@
   selected: '{{ existing.predicted_winner_id if existing else '' }}',
   homeId:   '{{ match.team_home_id }}',
   awayId:   '{{ match.team_away_id }}',
-  tab:      'prediction'
+  tab:      '{{ 'result' if is_done else 'prediction' }}'
 }">
 
 {# ══════════════════════════════════════════════════════════════════════════════
    1. MATCH HERO
    ══════════════════════════════════════════════════════════════════════════════ #}
-<div class="relative -mx-4 -mt-8 overflow-hidden" style="min-height:280px">
+{% if is_done %}
+  {% if match.result and match.result.is_extra_time and match.result.score_home_et is not none %}
+    {% set disp_h = match.result.score_home_et %}
+    {% set disp_a = match.result.score_away_et %}
+  {% else %}
+    {% set disp_h = match.score_home %}
+    {% set disp_a = match.score_away %}
+  {% endif %}
+{% endif %}
+
+<div class="relative -mx-4 -mt-8 overflow-hidden" style="min-height:{% if is_done %}340px{% else %}280px{% endif %}">
 
   {# Pitch background #}
   <div class="absolute inset-0"
        style="background:radial-gradient(ellipse 150% 100% at 50% -5%,#0b2214 0%,#0f172a 58%)"></div>
-
-  {# Grass stripe texture #}
   <div class="absolute inset-0"
        style="background-image:repeating-linear-gradient(0deg,transparent,transparent 34px,rgba(255,255,255,.035) 34px,rgba(255,255,255,.035) 36px)"></div>
-
-  {# Subtle centre-circle glow #}
   <div class="absolute inset-0"
        style="background:radial-gradient(ellipse 50% 60% at 50% 60%,rgba(255,255,255,.03) 0%,transparent 70%)"></div>
-
-  {# Bottom fade into body #}
-  <div class="absolute bottom-0 left-0 right-0 h-20"
+  <div class="absolute bottom-0 left-0 right-0 h-24"
        style="background:linear-gradient(to bottom,transparent,#0f172a)"></div>
 
   {# Hero content #}
-  <div class="relative z-10 max-w-6xl mx-auto px-4 pt-5 pb-10 flex flex-col items-center hero-animate">
+  <div class="relative z-10 max-w-4xl mx-auto px-4 pt-5 pb-12 hero-animate">
 
-    {# Back link #}
-    <div class="w-full flex justify-start mb-5">
-      <a href="/matches"
-         class="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-200 text-sm transition-colors">
+    {# Back link + Competition label #}
+    <div class="flex justify-start mb-4">
+      <a href="/matches" class="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-200 text-sm transition-colors">
         ← Back to Matches
       </a>
     </div>
-
-    {# Competition label #}
-    <p class="text-slate-400 text-[11px] uppercase tracking-widest text-center">
-      FIFA World Cup 2026™
-      {% if match.group_name %} &nbsp;·&nbsp; Group Stage &nbsp;·&nbsp; {{ match.group_name }}
-      {% elif match.round_name %} &nbsp;·&nbsp; {{ match.round_name }}
-      {% endif %}
+    <p class="text-slate-400 text-[11px] uppercase tracking-widest text-center mb-1">
+      FIFA World Cup 2026™{% if match.group_name %} &nbsp;·&nbsp; Group Stage &nbsp;·&nbsp; {{ match.group_name }}{% elif match.round_name %} &nbsp;·&nbsp; {{ match.round_name }}{% endif %}
     </p>
-    <p class="text-slate-400 text-sm text-center mt-1 mb-8">
-      {{ (match.match_date|local).strftime('%b %d, %Y') }}
-      &nbsp;·&nbsp;
-      {{ (match.match_date|local).strftime('%H:%M') }}
+    <p class="text-slate-500 text-xs text-center mb-8">
+      {{ (match.match_date|local).strftime('%b %d, %Y · %H:%M') }}
     </p>
 
-    {# Teams VS row #}
-    <div class="w-full flex items-center justify-center gap-4 sm:gap-16 max-w-2xl">
+    {# ── DONE: full-width 3-column grid ── #}
+    {% if is_done %}
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
 
-      {# Home team #}
-      <div class="flex flex-col items-center gap-2 text-center flex-1">
+      {# Home team column #}
+      <div class="flex flex-col items-center gap-2 text-center">
         <img src="https://flagcdn.com/w80/{{ match.team_home.flag_code }}.png"
              alt="{{ match.team_home.name }}"
-             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40">
-        <span class="font-extrabold text-lg sm:text-2xl text-white leading-tight mt-1">
+             class="w-20 h-14 sm:w-24 sm:h-16 object-cover rounded-lg shadow-lg"
+             onerror="this.style.display='none'">
+        <span class="text-base sm:text-xl font-bold leading-tight
+          {% if match.winner_id == match.team_home_id %}text-white{% else %}text-slate-400{% endif %}">
           {{ match.team_home.name }}
         </span>
-        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Home</span>
+        {% if match.winner_id == match.team_home_id %}
+        <span class="bg-amber-500 text-slate-900 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">WINNER</span>
+        {% else %}
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Home</span>
+        {% endif %}
       </div>
 
-      {# VS watermark #}
-      <div class="flex-shrink-0 select-none leading-none"
-           style="font-size:clamp(3rem,8vw,5.5rem);font-weight:900;color:rgba(255,255,255,0.07)">
-        VS
+      {# Score column — order: 90' → ET → PEN #}
+      <div class="flex flex-col items-center gap-1 select-none min-w-[180px] sm:min-w-[220px]">
+
+        {# 1. 90 Minutes — always first, biggest #}
+        <div class="flex flex-col items-center gap-0.5">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">90'</span>
+          <div class="flex items-center gap-2 sm:gap-4">
+            <span class="text-5xl sm:text-7xl font-black tabular-nums leading-none
+              {% if not (match.result and (match.result.is_extra_time or match.result.is_penalties)) and match.winner_id == match.team_home_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.score_home }}</span>
+            <span class="text-3xl sm:text-5xl font-thin text-slate-600 leading-none mx-1">—</span>
+            <span class="text-5xl sm:text-7xl font-black tabular-nums leading-none
+              {% if not (match.result and (match.result.is_extra_time or match.result.is_penalties)) and match.winner_id == match.team_away_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.score_away }}</span>
+          </div>
+        </div>
+
+        {# 2. Extra Time — if applicable #}
+        {% if match.result and match.result.is_extra_time and match.result.score_home_et is not none %}
+        <div class="flex flex-col items-center gap-0.5 mt-3">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-blue-400/80">Extra Time</span>
+          <div class="flex items-center gap-2">
+            <span class="text-2xl sm:text-3xl font-bold tabular-nums
+              {% if not match.result.is_penalties and match.winner_id == match.team_home_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.result.score_home_et }}</span>
+            <span class="text-slate-600 font-bold">–</span>
+            <span class="text-2xl sm:text-3xl font-bold tabular-nums
+              {% if not match.result.is_penalties and match.winner_id == match.team_away_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.result.score_away_et }}</span>
+          </div>
+        </div>
+        {% endif %}
+
+        {# 3. Penalties — if applicable #}
+        {% if match.result and match.result.is_penalties and match.result.score_home_pen is not none %}
+        <div class="flex flex-col items-center gap-0.5 mt-3">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-purple-400/80">Penalties</span>
+          <div class="flex items-center gap-2">
+            <span class="text-2xl sm:text-3xl font-bold tabular-nums
+              {% if match.winner_id == match.team_home_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.result.score_home_pen }}</span>
+            <span class="text-slate-600 font-bold">–</span>
+            <span class="text-2xl sm:text-3xl font-bold tabular-nums
+              {% if match.winner_id == match.team_away_id %}text-amber-400{% else %}text-slate-300{% endif %}">{{ match.result.score_away_pen }}</span>
+          </div>
+        </div>
+        {% endif %}
+
+        {# Status badge #}
+        <div class="mt-4">
+          {% if match.result and match.result.is_penalties %}
+          <span class="text-[10px] font-bold uppercase tracking-widest bg-purple-900/60 text-purple-300 px-3 py-1 rounded-full">After Penalties</span>
+          {% elif match.result and match.result.is_extra_time %}
+          <span class="text-[10px] font-bold uppercase tracking-widest bg-blue-900/60 text-blue-300 px-3 py-1 rounded-full">After Extra Time</span>
+          {% else %}
+          <span class="text-[10px] font-bold uppercase tracking-widest bg-slate-700/80 text-slate-400 px-3 py-1 rounded-full">Full Time</span>
+          {% endif %}
+        </div>
       </div>
 
-      {# Away team #}
-      <div class="flex flex-col items-center gap-2 text-center flex-1">
+      {# Away team column #}
+      <div class="flex flex-col items-center gap-2 text-center">
         <img src="https://flagcdn.com/w80/{{ match.team_away.flag_code }}.png"
              alt="{{ match.team_away.name }}"
-             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40">
-        <span class="font-extrabold text-lg sm:text-2xl text-white leading-tight mt-1">
+             class="w-20 h-14 sm:w-24 sm:h-16 object-cover rounded-lg shadow-lg"
+             onerror="this.style.display='none'">
+        <span class="text-base sm:text-xl font-bold leading-tight
+          {% if match.winner_id == match.team_away_id %}text-white{% else %}text-slate-400{% endif %}">
           {{ match.team_away.name }}
         </span>
-        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Away</span>
+        {% if match.winner_id == match.team_away_id %}
+        <span class="bg-amber-500 text-slate-900 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">WINNER</span>
+        {% else %}
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Away</span>
+        {% endif %}
       </div>
 
     </div>
+
+    {# ── UPCOMING: compact VS layout ── #}
+    {% else %}
+    <div class="flex items-center justify-center gap-4 sm:gap-12 max-w-2xl mx-auto">
+      <div class="flex flex-col items-center gap-2 text-center flex-1">
+        <img src="https://flagcdn.com/w80/{{ match.team_home.flag_code }}.png"
+             alt="{{ match.team_home.name }}"
+             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40"
+             onerror="this.style.display='none'">
+        <span class="font-extrabold text-base sm:text-xl text-white leading-tight">{{ match.team_home.name }}</span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Home</span>
+      </div>
+      <div class="leading-none select-none" style="font-size:clamp(3rem,8vw,5.5rem);font-weight:900;color:rgba(255,255,255,0.07)">VS</div>
+      <div class="flex flex-col items-center gap-2 text-center flex-1">
+        <img src="https://flagcdn.com/w80/{{ match.team_away.flag_code }}.png"
+             alt="{{ match.team_away.name }}"
+             class="h-12 sm:h-20 w-auto rounded shadow-xl shadow-black/40"
+             onerror="this.style.display='none'">
+        <span class="font-extrabold text-base sm:text-xl text-white leading-tight">{{ match.team_away.name }}</span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Away</span>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
 
 {# ══════════════════════════════════════════════════════════════════════════════
-   2. ODDS BANNER
+   2. ASIAN HANDICAP BAR
    ══════════════════════════════════════════════════════════════════════════════ #}
 {% if match.rating_home is not none and match.rating_away is not none %}
 <div class="max-w-2xl mx-auto px-4 mb-4">
-  <div class="rounded-xl border border-slate-700/50 flex items-center justify-center gap-0 overflow-hidden"
+  <div class="grid grid-cols-3 rounded-xl border border-slate-700/40 overflow-hidden"
        style="background:rgba(15,23,42,.7)">
-
-    {# Home odds #}
-    <div class="flex-1 flex flex-col items-center py-3.5 px-4 border-r border-slate-700/50">
-      <span class="text-[9px] uppercase tracking-widest font-bold text-slate-500 mb-1">Home</span>
-      <span class="text-3xl font-black text-amber-400 tabular-nums leading-none">{{ match.rating_home|fmt_rating }}</span>
+    <div class="flex flex-col items-center py-4 px-4 text-center">
+      <span class="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">Home</span>
+      <span class="text-2xl font-bold {% if home_is_underdog %}text-amber-400{% else %}text-slate-200{% endif %} tabular-nums">{{ match.rating_home|fmt_rating }}</span>
     </div>
-
-    {# Centre label #}
-    <div class="flex flex-col items-center px-4 gap-0.5">
-      <span class="text-[9px] uppercase tracking-widest font-bold text-amber-500/60 whitespace-nowrap">Kèo Chấp</span>
-      <span class="text-lg font-black text-slate-600 leading-none">:</span>
+    <div class="flex flex-col items-center py-4 px-4 text-center border-x border-slate-700/40">
+      <span class="text-[10px] uppercase tracking-widest font-bold text-amber-500/60 mb-1">Asian Handicap</span>
+      <span class="text-slate-600 font-bold text-lg">:</span>
     </div>
-
-    {# Away odds #}
-    <div class="flex-1 flex flex-col items-center py-3.5 px-4 border-l border-slate-700/50">
-      <span class="text-[9px] uppercase tracking-widest font-bold text-slate-500 mb-1">Away</span>
-      <span class="text-3xl font-black text-slate-300 tabular-nums leading-none">{{ match.rating_away|fmt_rating }}</span>
+    <div class="flex flex-col items-center py-4 px-4 text-center">
+      <span class="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">Away</span>
+      <span class="text-2xl font-bold {% if away_is_underdog %}text-amber-400{% else %}text-slate-200{% endif %} tabular-nums">{{ match.rating_away|fmt_rating }}</span>
     </div>
-
   </div>
 </div>
 {% endif %}
@@ -147,6 +223,15 @@
 <div class="sticky top-14 z-30 -mx-4 px-4 border-b border-slate-700/50"
      style="background:rgba(15,23,42,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)">
   <div class="max-w-6xl mx-auto flex">
+    {% if is_done %}
+    <button @click="tab = 'result'"
+            :class="tab === 'result'
+              ? 'text-white border-b-2 border-amber-400'
+              : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300'"
+            class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
+      Result
+    </button>
+    {% else %}
     <button @click="tab = 'prediction'"
             :class="tab === 'prediction'
               ? 'text-white border-b-2 border-amber-400'
@@ -154,6 +239,7 @@
             class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
       Prediction
     </button>
+    {% endif %}
     <button @click="tab = 'stats'"
             :class="tab === 'stats'
               ? 'text-white border-b-2 border-amber-400'
@@ -166,7 +252,119 @@
 
 
 {# ══════════════════════════════════════════════════════════════════════════════
-   4. PREDICTION TAB
+   4a. RESULT TAB (done matches)
+   ══════════════════════════════════════════════════════════════════════════════ #}
+{% if is_done %}
+<div x-show="tab === 'result'" class="mt-6 max-w-2xl mx-auto space-y-4">
+
+  {# User prediction result card #}
+  {% if existing %}
+  {% if existing.points_earned is not none and existing.points_earned > 0 %}
+    {% set pred_border = 'border-l-4 border-l-green-500 border-green-500/20 bg-green-500/5' %}
+    {% set pred_label_color = 'text-green-400' %}
+  {% elif existing.points_earned is not none %}
+    {% set pred_border = 'border-l-4 border-l-red-500 border-red-500/20 bg-red-500/5' %}
+    {% set pred_label_color = 'text-red-400' %}
+  {% else %}
+    {% set pred_border = 'border-slate-700/50' %}
+    {% set pred_label_color = 'text-slate-400' %}
+  {% endif %}
+  <div class="glass border rounded-2xl p-5 {{ pred_border }}">
+    <p class="text-[10px] uppercase tracking-widest font-bold mb-4 {{ pred_label_color }}">Your Prediction</p>
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        {% if existing.predicted_winner_id == match.team_home_id %}
+          {% if match.team_home and match.team_home.flag_code %}
+          <img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-7 w-auto rounded" onerror="this.style.display='none'">
+          {% endif %}
+          <span class="font-bold text-base text-white">{{ match.team_home.name if match.team_home else match.team_home_label }}</span>
+        {% else %}
+          {% if match.team_away and match.team_away.flag_code %}
+          <img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-7 w-auto rounded" onerror="this.style.display='none'">
+          {% endif %}
+          <span class="font-bold text-base text-white">{{ match.team_away.name if match.team_away else match.team_away_label }}</span>
+        {% endif %}
+      </div>
+      {% if existing.points_earned is not none %}
+        {% if existing.points_earned > 0 %}
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="text-2xl">✅</span>
+          <span class="text-green-400 font-black text-2xl tabular-nums">+{{ existing.points_earned }}</span>
+          <span class="text-green-600 text-sm font-semibold">pts</span>
+        </div>
+        {% else %}
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="text-2xl">❌</span>
+          <span class="text-red-400 font-black text-2xl tabular-nums">{{ existing.points_earned }}</span>
+          <span class="text-red-600 text-sm font-semibold">pts</span>
+        </div>
+        {% endif %}
+      {% else %}
+      <span class="text-yellow-400 text-sm font-semibold shrink-0">⏳ Pending</span>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="glass border border-slate-700/50 rounded-2xl p-5 text-center text-slate-500 text-sm">
+    You didn't make a prediction for this match.
+  </div>
+  {% endif %}
+
+  {# Video embeds #}
+  {% set embed_url = (match.highlight_url or match.youtube_url)|youtube_embed %}
+  {% set has_second = match.highlight_url and match.youtube_url and match.highlight_url != match.youtube_url %}
+  {% set embed_url2 = match.youtube_url|youtube_embed if has_second else '' %}
+
+  {% if embed_url %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    {# Primary video — highlight takes priority #}
+    <div class="aspect-video w-full">
+      <iframe src="{{ embed_url }}"
+              class="w-full h-full"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"
+              title="{% if match.highlight_url %}Match Highlights{% else %}Match Preview{% endif %}">
+      </iframe>
+    </div>
+    <div class="px-4 py-2.5 flex items-center justify-between">
+      <span class="text-xs font-semibold text-slate-400">
+        {% if match.highlight_url %}🎬 Highlights{% else %}📺 Preview{% endif %}
+      </span>
+      <a href="{{ match.highlight_url or match.youtube_url }}" target="_blank" rel="noopener"
+         class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
+    </div>
+
+    {# Second video (preview) if both URLs are set and different #}
+    {% if has_second and embed_url2 %}
+    <div class="border-t border-slate-700/40">
+      <div class="aspect-video w-full">
+        <iframe src="{{ embed_url2 }}"
+                class="w-full h-full"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                loading="lazy"
+                title="Match Preview">
+        </iframe>
+      </div>
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-400">📺 Preview</span>
+        <a href="{{ match.youtube_url }}" target="_blank" rel="noopener"
+           class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   4b. PREDICTION TAB (upcoming matches only)
    ══════════════════════════════════════════════════════════════════════════════ #}
 <div x-show="tab === 'prediction'" class="mt-6">
 <div class="lg:grid lg:grid-cols-[3fr_2fr] gap-6">
@@ -365,8 +563,9 @@
 
 
 {# ══════════════════════════════════════════════════════════════════════════════
-   MOBILE: Fixed confirm button (sm and below)
+   MOBILE: Fixed confirm button (sm and below, upcoming matches only)
    ══════════════════════════════════════════════════════════════════════════════ #}
+{% if not is_done %}
 <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-6"
      style="background:linear-gradient(to top,rgba(15,23,42,1) 55%,transparent);
             padding-bottom:max(16px,env(safe-area-inset-bottom))">
@@ -386,6 +585,7 @@
 
 {# Spacer so the fixed button doesn't cover the last form element on mobile #}
 <div class="sm:hidden h-24"></div>
+{% endif %}
 
 </div>{# end Alpine wrapper #}
 

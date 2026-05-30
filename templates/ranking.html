@@ -92,7 +92,9 @@
                     text-lg font-extrabold text-amber-600 mb-2">
           {{ p3.username[0].upper() }}
         </div>
-        <p class="font-bold text-sm text-white truncate max-w-full px-2">{{ p3.username }}</p>
+        <p class="font-bold text-sm text-white px-2 break-all">
+          {{ p3.username }}
+        </p>
         <p class="text-slate-300 font-bold text-lg mt-1">{{ p3.total_score }}</p>
         <p class="text-xs text-slate-500 mt-0.5">{{ correct_counts.get(p3.id, 0) }} correct</p>
       </div>

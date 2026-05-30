@@ -82,12 +82,12 @@ document.addEventListener('alpine:init', () => {
     <button type="button" @click="$store.matchPhase.phase='pre'"
             :class="$store.matchPhase.phase==='pre' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'"
             class="px-5 py-2 text-sm rounded-lg transition-all">
-      Truoc Tran
+      Pre-Match
     </button>
     <button type="button" @click="$store.matchPhase.phase='post'"
             :class="$store.matchPhase.phase==='post' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'"
             class="px-5 py-2 text-sm rounded-lg transition-all">
-      Sau Tran
+      Post-Match
     </button>
   </div>
 
@@ -157,11 +157,11 @@ document.addEventListener('alpine:init', () => {
         {{ STAGE_LABELS.get(match.stage, match.stage) }}
       </span>
       <div class="flex items-center gap-2 flex-1 min-w-0">
-        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
         <span class="font-bold text-white text-sm">{{ home_name }}</span>
         <span class="text-slate-600 text-xs px-1">—</span>
         <span class="font-bold text-white text-sm">{{ away_name }}</span>
-        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-slate-400 text-xs">{{ (match.match_date|local).strftime('%Y-%m-%d %H:%M') }}</span>
@@ -176,13 +176,13 @@ document.addEventListener('alpine:init', () => {
 
       {# 1. Match Time #}
       <div>
-        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Gio Thi Dau (UTC+7)</span>
+        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Match Time (UTC+7)</span>
         <form method="POST" action="/admin/match/{{ match.id }}/time" class="flex items-center gap-2 flex-wrap">
           <input type="datetime-local" name="match_date"
                  value="{{ local_date }}"
                  class="flex-1 min-w-48 bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
           <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition shrink-0">
-            Luu gio
+            Save Time
           </button>
         </form>
       </div>
@@ -191,10 +191,10 @@ document.addEventListener('alpine:init', () => {
       <form method="POST" action="/admin/match/{{ match.id }}/prematch">
         <div class="space-y-4">
           <div>
-            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Keo Chap</span>
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Asian Handicap</span>
             <div class="flex items-center gap-3 flex-wrap">
               <div class="flex items-center gap-1.5 shrink-0">
-                {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_home.flag_code }}.png" class="h-4 w-auto rounded-sm">{% endif %}
+                {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_home.flag_code }}.png" class="h-4 w-auto rounded-sm" onerror="this.style.display='none'">{% endif %}
                 <span class="text-sm font-bold text-blue-400" x-text="homeName"></span>
               </div>
               <input type="number" name="rating_home" step="0.25" min="0"
@@ -208,16 +208,16 @@ document.addEventListener('alpine:init', () => {
                      class="w-20 bg-slate-900/70 border border-amber-700/50 rounded-xl px-3 py-2 text-center text-amber-300 text-lg font-bold focus:outline-none focus:border-amber-500 transition">
               <div class="flex items-center gap-1.5 shrink-0">
                 <span class="text-sm font-bold text-slate-400" x-text="awayName"></span>
-                {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_away.flag_code }}.png" class="h-4 w-auto rounded-sm">{% endif %}
+                {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w32/{{ match.team_away.flag_code }}.png" class="h-4 w-auto rounded-sm" onerror="this.style.display='none'">{% endif %}
               </div>
             </div>
           </div>
 
           <div>
-            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Xac Suat Thang</span>
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Win Probability</span>
             <div class="flex justify-between text-xs mb-2">
               <span class="text-blue-400 font-semibold" x-text="homeName + ' ' + hwp + '%'"></span>
-              <span class="text-slate-500 text-[11px]" x-text="'Hoa ' + dp + '%'"></span>
+              <span class="text-slate-500 text-[11px]" x-text="'Draw ' + dp + '%'"></span>
               <span class="text-slate-400 font-semibold" x-text="awp + '% ' + awayName"></span>
             </div>
             <div class="flex items-center gap-3">
@@ -233,21 +233,21 @@ document.addEventListener('alpine:init', () => {
 
           <div class="flex justify-end pt-1 border-t border-slate-700/30">
             <button type="submit" class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition">
-              Luu cap do
+              Save Rating
             </button>
           </div>
         </div>
       </form>
 
       {# 3. Media (collapsible) #}
-      <div x-data="{ open: {{ 'true' if match.youtube_url or match.players_note or match.preview_text else 'false' }} }"
+      <div x-data="{ open: {{ 'true' if match.youtube_url else 'false' }} }"
            class="border-t border-slate-700/30 pt-4">
         <button type="button" @click="open=!open"
                 class="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors w-full text-left">
           <span x-text="open ? '▾' : '▸'" class="text-amber-500 font-bold text-sm"></span>
-          <span class="font-semibold">Media & Ghi chu (tuy chon)</span>
-          {% if match.youtube_url or match.players_note or match.preview_text %}
-          <span class="ml-auto text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Da luu</span>
+          <span class="font-semibold">YouTube Preview (optional)</span>
+          {% if match.youtube_url %}
+          <span class="ml-auto text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Saved</span>
           {% endif %}
         </button>
         <form x-show="open" method="POST" action="/admin/match/{{ match.id }}/media" class="mt-3 space-y-3">
@@ -258,21 +258,9 @@ document.addEventListener('alpine:init', () => {
                    placeholder="https://youtube.com/..."
                    class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
           </div>
-          <div>
-            <label class="block text-[11px] text-slate-500 mb-1">Cau thu dang xem</label>
-            <input type="text" name="players_note"
-                   value="{{ match.players_note or '' }}"
-                   placeholder="Mbappe, Ronaldo, ..."
-                   class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-500 mb-1">Ghi chu truoc tran</label>
-            <textarea name="preview_text" rows="2" placeholder="Preview ngan..."
-                      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition resize-none">{{ match.preview_text or '' }}</textarea>
-          </div>
           <div class="flex justify-end">
             <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
-              Luu media
+              Save
             </button>
           </div>
         </form>
@@ -302,10 +290,7 @@ document.addEventListener('alpine:init', () => {
          ra: {{ match.rating_away or 0 }},
          scoreHome: {{ (match.score_home|string if match.score_home is not none else '')|jsattr }},
          scoreAway: {{ (match.score_away|string if match.score_away is not none else '')|jsattr }},
-         hasET: {{ 'true' if match.result and match.result.is_extra_time else 'false' }},
-         hasPen: {{ 'true' if match.result and match.result.is_penalties else 'false' }},
          highlightUrl: {{ (match.highlight_url or '')|jsattr }},
-         matchSummary: {{ (match.match_summary or '')|jsattr }},
          winner: null,
          fetchLoading: false,
          init() {
@@ -334,16 +319,18 @@ document.addEventListener('alpine:init', () => {
         {{ STAGE_LABELS.get(match.stage, match.stage) }}
       </span>
       <div class="flex items-center gap-2 flex-1 min-w-0">
-        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        {% if match.team_home and match.team_home.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_home.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
         <span class="font-bold text-white text-sm">{{ home_name }}</span>
         <span class="text-slate-600 text-xs px-1">—</span>
         <span class="font-bold text-white text-sm">{{ away_name }}</span>
-        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0">{% endif %}
+        {% if match.team_away and match.team_away.flag_code %}<img src="https://flagcdn.com/w40/{{ match.team_away.flag_code }}.png" class="h-5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-slate-400 text-xs">{{ (match.match_date|local).strftime('%Y-%m-%d %H:%M') }}</span>
         {% if match_status == 'done' %}<span class="text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
-          Done {{ match.score_home }}-{{ match.score_away }}{% if match.result and match.result.is_penalties %} PEN{% elif match.result and match.result.is_extra_time %} ET{% endif %}
+          {% if match.result and match.result.is_penalties %}{{ match.result.score_home_et or match.score_home }}-{{ match.result.score_away_et or match.score_away }} ({{ match.result.score_home_pen }}-{{ match.result.score_away_pen }}p) | 90': {{ match.score_home }}-{{ match.score_away }}
+          {% elif match.result and match.result.is_extra_time %}{{ match.result.score_home_et }}-{{ match.result.score_away_et }} AET | 90': {{ match.score_home }}-{{ match.score_away }}
+          {% else %}{{ match.score_home }}-{{ match.score_away }}{% endif %}
         </span>
         {% elif match_status == 'live' %}<span class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
         {% else %}<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">Soon</span>{% endif %}
@@ -355,72 +342,89 @@ document.addEventListener('alpine:init', () => {
 
       {# 1. Result #}
       <form method="POST" action="/admin/match/{{ match.id }}/result">
-        <div class="space-y-3">
-          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">Ket Qua</span>
+        <div class="space-y-4">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">Match Result</span>
 
-          {# Main score #}
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-slate-500 text-[11px] font-bold w-8 shrink-0" x-text="hasET ? 'AET' : '90\''"></span>
-            <input type="number" name="score_home" min="0" max="30" placeholder="—"
-                   value="{{ match.score_home if match.score_home is not none else '' }}"
-                   x-model="scoreHome"
-                   class="w-16 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2.5 text-center text-white text-2xl font-extrabold focus:outline-none focus:border-amber-500 transition">
-            <span class="text-slate-500 font-bold text-2xl">-</span>
-            <input type="number" name="score_away" min="0" max="30" placeholder="—"
-                   value="{{ match.score_away if match.score_away is not none else '' }}"
-                   x-model="scoreAway"
-                   class="w-16 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2.5 text-center text-white text-2xl font-extrabold focus:outline-none focus:border-amber-500 transition">
-            <div class="flex items-center gap-3 ml-1">
-              <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" name="is_extra_time" value="on"
-                       {% if match.result and match.result.is_extra_time %}checked{% endif %}
-                       :checked="hasET" @change="hasET=$event.target.checked"
-                       class="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 focus:ring-0">
-                <span class="text-[11px] text-blue-400 font-bold select-none">ET</span>
-              </label>
-              <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" name="is_penalties" value="on"
-                       {% if match.result and match.result.is_penalties %}checked{% endif %}
-                       :checked="hasPen" @change="hasPen=$event.target.checked"
-                       class="w-3.5 h-3.5 rounded border-slate-600 bg-slate-900 focus:ring-0">
-                <span class="text-[11px] text-purple-400 font-bold select-none">PEN</span>
-              </label>
+          {# ── 90 Min (always) ── #}
+          <div class="bg-slate-900/40 border border-slate-700/60 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">90 Min</span>
+              <span class="text-[10px] text-slate-600 italic">Predictions scored on this</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500 text-xs font-bold shrink-0 w-20 truncate" x-text="homeName"></span>
+              <input type="number" name="score_home" min="0" max="30" placeholder="—"
+                     value="{{ match.score_home if match.score_home is not none else '' }}"
+                     x-model="scoreHome"
+                     class="w-14 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2 text-center text-white text-xl font-extrabold focus:outline-none focus:border-amber-500 transition">
+              <span class="text-slate-500 font-bold text-lg">–</span>
+              <input type="number" name="score_away" min="0" max="30" placeholder="—"
+                     value="{{ match.score_away if match.score_away is not none else '' }}"
+                     x-model="scoreAway"
+                     class="w-14 bg-slate-900/70 border border-slate-700 rounded-xl px-2 py-2 text-center text-white text-xl font-extrabold focus:outline-none focus:border-amber-500 transition">
+              <span class="text-slate-500 text-xs font-bold shrink-0 w-20 truncate text-right" x-text="awayName"></span>
             </div>
           </div>
 
-          {# ET row #}
-          <div class="flex items-center gap-3" x-show="hasET">
-            <span class="text-blue-400 text-[11px] font-bold w-8 shrink-0">ET</span>
-            <input type="number" name="score_home_et" min="0" max="30" placeholder="—"
-                   value="{{ match.result.score_home_et if match.result and match.result.score_home_et is not none else '' }}"
-                   class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-1.5 text-center text-blue-300 text-sm font-bold focus:outline-none focus:border-blue-500 transition">
-            <span class="text-slate-500 font-bold">-</span>
-            <input type="number" name="score_away_et" min="0" max="30" placeholder="—"
-                   value="{{ match.result.score_away_et if match.result and match.result.score_away_et is not none else '' }}"
-                   class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-1.5 text-center text-blue-300 text-sm font-bold focus:outline-none focus:border-blue-500 transition">
-            <span class="text-[10px] text-slate-500">Tong sau hiep phu</span>
+          {# ── Extra Time ── #}
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" name="is_extra_time" value="on" id="et_{{ match.id }}"
+                     {% if match.result and match.result.is_extra_time %}checked{% endif %}
+                     onchange="document.getElementById('et_box_{{ match.id }}').classList.toggle('hidden',!this.checked)"
+                     class="w-4 h-4 accent-blue-500 cursor-pointer">
+              <label for="et_{{ match.id }}" class="text-xs font-bold text-slate-400 cursor-pointer select-none">
+                Extra Time (ET)
+              </label>
+            </div>
+            <div id="et_box_{{ match.id }}"
+                 class="{% if not (match.result and match.result.is_extra_time) %}hidden{% endif %} bg-slate-900/40 border border-blue-800/40 rounded-xl px-3 py-2.5 space-y-1.5">
+              <span class="text-[10px] text-slate-500">Total score after ET</span>
+              <div class="flex items-center gap-2">
+                <input type="number" name="score_home_et" min="0" max="30" placeholder="—"
+                       value="{{ match.result.score_home_et if match.result and match.result.score_home_et is not none else '' }}"
+                       class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-2 text-center text-blue-200 text-lg font-bold focus:outline-none focus:border-blue-500 transition">
+                <span class="text-slate-500 font-bold">–</span>
+                <input type="number" name="score_away_et" min="0" max="30" placeholder="—"
+                       value="{{ match.result.score_away_et if match.result and match.result.score_away_et is not none else '' }}"
+                       class="w-14 bg-slate-900/70 border border-blue-800/60 rounded-xl px-2 py-2 text-center text-blue-200 text-lg font-bold focus:outline-none focus:border-blue-500 transition">
+              </div>
+            </div>
           </div>
 
-          {# PEN row #}
-          <div class="flex items-center gap-3" x-show="hasPen">
-            <span class="text-purple-400 text-[11px] font-bold w-8 shrink-0">PEN</span>
-            <input type="number" name="score_home_pen" min="0" max="30" placeholder="—"
-                   value="{{ match.result.score_home_pen if match.result and match.result.score_home_pen is not none else '' }}"
-                   class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-1.5 text-center text-purple-300 text-sm font-bold focus:outline-none focus:border-purple-500 transition">
-            <span class="text-slate-500 font-bold">-</span>
-            <input type="number" name="score_away_pen" min="0" max="30" placeholder="—"
-                   value="{{ match.result.score_away_pen if match.result and match.result.score_away_pen is not none else '' }}"
-                   class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-1.5 text-center text-purple-300 text-sm font-bold focus:outline-none focus:border-purple-500 transition">
-            <span class="text-[10px] text-slate-500">Penalty shootout</span>
+          {# ── Penalties ── #}
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" name="is_penalties" value="on" id="pen_{{ match.id }}"
+                     {% if match.result and match.result.is_penalties %}checked{% endif %}
+                     onchange="document.getElementById('pen_box_{{ match.id }}').classList.toggle('hidden',!this.checked)"
+                     class="w-4 h-4 accent-purple-500 cursor-pointer">
+              <label for="pen_{{ match.id }}" class="text-xs font-bold text-slate-400 cursor-pointer select-none">
+                Penalties (PEN)
+              </label>
+            </div>
+            <div id="pen_box_{{ match.id }}"
+                 class="{% if not (match.result and match.result.is_penalties) %}hidden{% endif %} bg-slate-900/40 border border-purple-800/40 rounded-xl px-3 py-2.5 space-y-1.5">
+              <span class="text-[10px] text-slate-500">Penalty shootout score</span>
+              <div class="flex items-center gap-2">
+                <input type="number" name="score_home_pen" min="0" max="30" placeholder="—"
+                       value="{{ match.result.score_home_pen if match.result and match.result.score_home_pen is not none else '' }}"
+                       class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-2 text-center text-purple-200 text-lg font-bold focus:outline-none focus:border-purple-500 transition">
+                <span class="text-slate-500 font-bold">–</span>
+                <input type="number" name="score_away_pen" min="0" max="30" placeholder="—"
+                       value="{{ match.result.score_away_pen if match.result and match.result.score_away_pen is not none else '' }}"
+                       class="w-14 bg-slate-900/70 border border-purple-800/60 rounded-xl px-2 py-2 text-center text-purple-200 text-lg font-bold focus:outline-none focus:border-purple-500 transition">
+              </div>
+            </div>
           </div>
 
-          {# Winner preview + buttons #}
+          {# ── Handicap preview + action buttons ── #}
           <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-700/30">
             <div class="text-xs min-w-0">
-              <template x-if="winner==='home'"><span class="text-green-400 font-bold">Winner: <span x-text="homeName"></span></span></template>
-              <template x-if="winner==='away'"><span class="text-green-400 font-bold">Winner: <span x-text="awayName"></span></span></template>
-              <template x-if="winner==='draw'"><span class="text-slate-400 italic">Hoa keo – 0 diem</span></template>
-              <template x-if="winner===null"><span class="text-slate-600 italic">Nhap diem de xem ket qua keo</span></template>
+              <template x-if="winner==='home'"><span class="text-green-400 font-bold">Handicap winner: <span x-text="homeName"></span></span></template>
+              <template x-if="winner==='away'"><span class="text-green-400 font-bold">Handicap winner: <span x-text="awayName"></span></span></template>
+              <template x-if="winner==='draw'"><span class="text-slate-400 italic">Handicap draw – 0 pts</span></template>
+              <template x-if="winner===null"><span class="text-slate-600 italic">Enter 90 min scores to preview</span></template>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button type="button"
@@ -445,19 +449,19 @@ document.addEventListener('alpine:init', () => {
               </button>
               <button type="submit"
                       class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition">
-                Luu ket qua
+                Save Result
               </button>
             </div>
           </div>
         </div>
       </form>
 
-      {# 2. Highlight & Summary #}
+      {# 2. Highlight URL #}
       <form method="POST" action="/admin/match/{{ match.id }}/highlight"
             class="border-t border-slate-700/30 pt-4 space-y-3">
         <div class="flex items-center gap-2 mb-1">
-          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Highlight & Tom Tat</span>
-          {% if match.highlight_url %}<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Da luu</span>{% endif %}
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Highlight</span>
+          {% if match.highlight_url %}<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Saved</span>{% endif %}
         </div>
         <div>
           <label class="block text-[11px] text-slate-500 mb-1">YouTube Highlight URL</label>
@@ -466,14 +470,9 @@ document.addEventListener('alpine:init', () => {
                  placeholder="https://youtube.com/..."
                  class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
         </div>
-        <div>
-          <label class="block text-[11px] text-slate-500 mb-1">Tom tat tran dau</label>
-          <textarea name="match_summary" rows="2" placeholder="Tom tat ngan..."
-                    class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition resize-none">{{ match.match_summary or '' }}</textarea>
-        </div>
         <div class="flex justify-end">
           <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
-            Luu highlight
+            Save Highlight
           </button>
         </div>
       </form>

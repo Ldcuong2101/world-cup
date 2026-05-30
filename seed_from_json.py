@@ -75,12 +75,12 @@ db = SessionLocal()
 print("Seeding users…")
 db.add_all([
     User(username="admin", password_hash=hash_password("admin123"), is_admin=True, total_score=0),
-    User(username="superadmin", password_hash=hash_password("superadmin123"), is_admin=True, total_score=0),
-    User(username="alice", password_hash=hash_password("alice123"), is_admin=False, total_score=0),
-    User(username="bob", password_hash=hash_password("bob123"), is_admin=False, total_score=0),
-    User(username="charlie", password_hash=hash_password("charlie123"), is_admin=False, total_score=0),
-    User(username="diana", password_hash=hash_password("diana123"), is_admin=False, total_score=0),
-    User(username="eve", password_hash=hash_password("eve123"), is_admin=False, total_score=0),
+    # User(username="superadmin", password_hash=hash_password("superadmin123"), is_admin=True, total_score=0),
+    # User(username="alice", password_hash=hash_password("alice123"), is_admin=False, total_score=0),
+    # User(username="bob", password_hash=hash_password("bob123"), is_admin=False, total_score=0),
+    # User(username="charlie", password_hash=hash_password("charlie123"), is_admin=False, total_score=0),
+    # User(username="diana", password_hash=hash_password("diana123"), is_admin=False, total_score=0),
+    # User(username="eve", password_hash=hash_password("eve123"), is_admin=False, total_score=0),
 ])
 db.commit()
 
