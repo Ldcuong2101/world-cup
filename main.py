@@ -671,3 +671,87 @@ async def rules_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return RedirectResponse("/matches", status_code=302)
+
+
+# ─── Profile ─────────────────────────────────────────────────────────────────
+
+_USERNAME_RE = _re.compile(r"^[a-zA-Z0-9_]{3,20}$")
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse("profile.html", {
+        "request": request, "user": user,
+        "username_errors": {}, "password_errors": {},
+    })
+
+
+@app.post("/profile/username")
+async def change_username(
+    request: Request,
+    new_username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    new_username = new_username.strip()
+    errors: dict = {}
+
+    if not _USERNAME_RE.match(new_username):
+        errors["new_username"] = "3–20 chars: letters, numbers, underscore only"
+    elif new_username == user.username:
+        errors["new_username"] = "That's already your username"
+    elif db.query(User).filter(User.username == new_username).first():
+        errors["new_username"] = "Username is already taken"
+
+    if not errors and not verify_password(password, user.password_hash):
+        errors["password"] = "Incorrect password"
+
+    if errors:
+        return templates.TemplateResponse("profile.html", {
+            "request": request, "user": user,
+            "username_errors": errors, "password_errors": {},
+        }, status_code=422)
+
+    user.username = new_username
+    db.commit()
+    return redirect("/profile", "Username updated successfully!", "success")
+
+
+@app.post("/profile/password")
+async def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    errors: dict = {}
+
+    if not verify_password(current_password, user.password_hash):
+        errors["current_password"] = "Incorrect current password"
+    if len(new_password) < 8:
+        errors["new_password"] = "Password must be at least 8 characters"
+    elif new_password == current_password:
+        errors["new_password"] = "New password must differ from current"
+    if new_password != confirm_password:
+        errors["confirm_password"] = "Passwords do not match"
+
+    if errors:
+        return templates.TemplateResponse("profile.html", {
+            "request": request, "user": user,
+            "username_errors": {}, "password_errors": errors,
+        }, status_code=422)
+
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    return redirect("/profile", "Password updated successfully!", "success")
