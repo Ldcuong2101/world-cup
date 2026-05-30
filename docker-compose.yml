@@ -5,12 +5,9 @@ services:
     ports:
       - "11111:8000"
     volumes:
-      - wc-data:/app/data
+      - ./data:/app/data
     environment:
       - DB_PATH=/app/data/worldcup.db
     env_file:
       - .env
     restart: unless-stopped
-
-volumes:
-  wc-data:
