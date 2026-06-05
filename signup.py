@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from auth import SESSION_COOKIE, create_session_token, hash_password
 from database import get_db
-from email_sender import send_otp_email
-from models import PendingRegistration, User
+from email_sender import send_otp_email, send_reset_email
+from models import PendingRegistration, PasswordResetToken, User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -251,6 +251,196 @@ async def resend_otp(request: Request, db: Session = Depends(get_db)):
         send_otp_email(email, otp, pending.username)
     except Exception as exc:
         print(f"[email] Failed to resend OTP to {email}: {exc}")
+        return JSONResponse({"success": False, "error": "Failed to send email"}, status_code=500)
+
+    return JSONResponse({"success": True})
+
+
+# ─── GET /forgot-password ─────────────────────────────────────────────────────
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request, "error": None, "sent": False},
+    )
+
+
+# ─── POST /forgot-password ────────────────────────────────────────────────────
+
+@router.post("/forgot-password")
+async def forgot_password_submit(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = email.strip().lower()
+
+    if not _EMAIL_RE.match(email):
+        return templates.TemplateResponse(
+            "forgot_password.html",
+            {"request": request, "error": "Enter a valid email address.", "sent": False},
+            status_code=422,
+        )
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return templates.TemplateResponse(
+            "forgot_password.html",
+            {"request": request, "error": "No account found with that email.", "sent": False},
+            status_code=422,
+        )
+
+    now = datetime.utcnow()
+    existing = db.query(PasswordResetToken).filter(PasswordResetToken.email == email).first()
+    if existing and existing.last_sent_at:
+        elapsed = now - existing.last_sent_at
+        if elapsed < _RESEND_COOLDOWN:
+            wait = int((_RESEND_COOLDOWN - elapsed).total_seconds())
+            return templates.TemplateResponse(
+                "forgot_password.html",
+                {"request": request, "error": f"Please wait {wait}s before requesting another code.", "sent": False},
+                status_code=429,
+            )
+
+    otp = _gen_otp()
+    if existing:
+        existing.otp_code = otp
+        existing.otp_expires_at = now + _OTP_TTL
+        existing.attempts = 0
+        existing.last_sent_at = now
+    else:
+        db.add(PasswordResetToken(
+            email=email,
+            otp_code=otp,
+            otp_expires_at=now + _OTP_TTL,
+            attempts=0,
+            last_sent_at=now,
+        ))
+    db.commit()
+
+    try:
+        send_reset_email(email, otp, user.username)
+    except Exception as exc:
+        print(f"[email] Failed to send reset OTP to {email}: {exc}")
+
+    request.session["reset_email"] = email
+    return RedirectResponse("/reset-password", status_code=302)
+
+
+# ─── GET /reset-password ──────────────────────────────────────────────────────
+
+@router.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request):
+    email = request.session.get("reset_email")
+    if not email:
+        return RedirectResponse("/forgot-password", status_code=302)
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "email": _mask_email(email), "error": None},
+    )
+
+
+# ─── POST /reset-password ─────────────────────────────────────────────────────
+
+@router.post("/reset-password")
+async def reset_password_submit(
+    request: Request,
+    otp: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = request.session.get("reset_email")
+    if not email:
+        return RedirectResponse("/forgot-password", status_code=302)
+
+    def _render_error(msg: str):
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "email": _mask_email(email), "error": msg},
+            status_code=422,
+        )
+
+    token = db.query(PasswordResetToken).filter(PasswordResetToken.email == email).first()
+    now = datetime.utcnow()
+
+    if not token or token.otp_expires_at < now:
+        if token:
+            db.delete(token)
+            db.commit()
+        request.session.pop("reset_email", None)
+        return RedirectResponse("/forgot-password?expired=1", status_code=302)
+
+    if token.attempts >= _MAX_ATTEMPTS:
+        db.delete(token)
+        db.commit()
+        request.session.pop("reset_email", None)
+        return RedirectResponse("/forgot-password?locked=1", status_code=302)
+
+    if otp.strip() != token.otp_code:
+        token.attempts += 1
+        db.commit()
+        remaining = _MAX_ATTEMPTS - token.attempts
+        if remaining <= 0:
+            db.delete(token)
+            db.commit()
+            request.session.pop("reset_email", None)
+            return RedirectResponse("/forgot-password?locked=1", status_code=302)
+        label = "attempt" if remaining == 1 else "attempts"
+        return _render_error(f"Invalid code. {remaining} {label} remaining.")
+
+    if len(new_password) < 8:
+        return _render_error("Password must be at least 8 characters.")
+    if new_password != confirm_password:
+        return _render_error("Passwords do not match.")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return RedirectResponse("/forgot-password", status_code=302)
+
+    user.password_hash = hash_password(new_password)
+    db.delete(token)
+    db.commit()
+    request.session.pop("reset_email", None)
+
+    r = RedirectResponse("/login", status_code=302)
+    r.set_cookie("flash_msg", "Password reset! Please sign in.", max_age=5)
+    r.set_cookie("flash_cat", "success", max_age=5)
+    return r
+
+
+# ─── POST /resend-reset-otp ───────────────────────────────────────────────────
+
+@router.post("/resend-reset-otp")
+async def resend_reset_otp(request: Request, db: Session = Depends(get_db)):
+    email = request.session.get("reset_email")
+    if not email:
+        return JSONResponse({"success": False, "error": "Session expired"}, status_code=400)
+
+    token = db.query(PasswordResetToken).filter(PasswordResetToken.email == email).first()
+    if not token:
+        return JSONResponse({"success": False, "error": "Reset request not found"}, status_code=404)
+
+    now = datetime.utcnow()
+    if token.last_sent_at:
+        elapsed = now - token.last_sent_at
+        if elapsed < _RESEND_COOLDOWN:
+            wait = int((_RESEND_COOLDOWN - elapsed).total_seconds())
+            return JSONResponse({"success": False, "error": f"Wait {wait}s before resending"}, status_code=429)
+
+    otp = _gen_otp()
+    token.otp_code = otp
+    token.otp_expires_at = now + _OTP_TTL
+    token.attempts = 0
+    token.last_sent_at = now
+    db.commit()
+
+    user = db.query(User).filter(User.email == email).first()
+    try:
+        send_reset_email(email, otp, user.username if user else "")
+    except Exception as exc:
+        print(f"[email] Failed to resend reset OTP to {email}: {exc}")
         return JSONResponse({"success": False, "error": "Failed to send email"}, status_code=500)
 
     return JSONResponse({"success": True})

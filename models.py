@@ -123,6 +123,16 @@ class SpecialEvent(Base):
     answers = relationship("SpecialEventAnswer", back_populates="special_event")
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    otp_code = Column(String(6), nullable=False)
+    otp_expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0)
+    last_sent_at = Column(DateTime, nullable=True)
+
+
 class SpecialEventAnswer(Base):
     __tablename__ = "special_event_answers"
     id = Column(Integer, primary_key=True, index=True)
