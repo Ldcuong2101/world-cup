@@ -91,7 +91,7 @@
       {# Desktop links #}
       <div class="hidden md:flex items-center gap-1">
         {% set path = request.url.path %}
-        {% for label, href in [('Matches','/matches'),('Ranking','/ranking'),('Special','/special'),('Rules','/rules')] %}
+        {% for label, href in [('Matches','/matches'),('Ranking','/ranking'),('Special','/special'),('News','/news'),('Rules','/rules')] %}
         <a href="{{ href }}"
            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
                   {% if path.startswith(href) %}text-amber-400 bg-amber-500/10{% else %}text-slate-300 hover:text-white hover:bg-slate-700/50{% endif %}">

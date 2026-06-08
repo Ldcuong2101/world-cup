@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Text
+from sqlalchemy.orm import relationship, backref as sa_backref
 from database import Base
 
 
@@ -143,3 +143,26 @@ class SpecialEventAnswer(Base):
 
     user = relationship("User", back_populates="special_answers")
     special_event = relationship("SpecialEvent", back_populates="answers")
+
+
+class Article(Base):
+    __tablename__ = "articles"
+    id            = Column(Integer, primary_key=True, index=True)
+    title         = Column(String, nullable=False)
+    source_url    = Column(String, unique=True, nullable=False, index=True)
+    thumbnail_url = Column(String, nullable=True)
+    excerpt       = Column(Text, nullable=True)
+    published_at  = Column(DateTime, nullable=True)
+    crawled_at    = Column(DateTime, nullable=False)
+
+
+class MatchArticle(Base):
+    __tablename__ = "match_articles"
+    id           = Column(Integer, primary_key=True, index=True)
+    match_id     = Column(Integer, ForeignKey("matches.id"), unique=True, nullable=False)
+    source_url   = Column(String, nullable=False)
+    title        = Column(String, nullable=True)
+    content_html = Column(Text, nullable=True)
+    crawled_at   = Column(DateTime, nullable=False)
+
+    match = relationship("Match", backref=sa_backref("article", uselist=False))

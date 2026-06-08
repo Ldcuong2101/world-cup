@@ -69,6 +69,11 @@ document.addEventListener('alpine:init', () => {
           class="px-4 py-2.5 text-sm font-semibold transition-colors -mb-px">
     Special Events <span class="ml-1 text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full">{{ events|length }}</span>
   </button>
+  <button type="button" @click="tab='news'"
+          :class="tab==='news' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-white'"
+          class="px-4 py-2.5 text-sm font-semibold transition-colors -mb-px">
+    Tin tức <span class="ml-1 text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full">{{ articles_count }}</span>
+  </button>
 </div>
 
 
@@ -264,6 +269,52 @@ document.addEventListener('alpine:init', () => {
             </button>
           </div>
         </form>
+      </div>
+
+      {# 4. Nhận định (collapsible) #}
+      <div x-data="{ open: {{ 'true' if match.article else 'false' }}, loading: false }"
+           class="border-t border-slate-700/30 pt-4">
+        <button type="button" @click="open=!open"
+                class="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors w-full text-left">
+          <span x-text="open ? '▾' : '▸'" class="text-amber-500 font-bold text-sm"></span>
+          <span class="font-semibold">Nhận định / Preview Article</span>
+          {% if match.article %}
+          <span class="ml-auto text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Đã có</span>
+          {% endif %}
+        </button>
+        <div x-show="open" class="mt-3 space-y-3">
+          <form method="POST" action="/admin/match/{{ match.id }}/nhandinh" @submit="loading=true">
+            <div class="mb-3">
+              <label class="block text-[11px] text-slate-500 mb-1">URL bài nhận định (thethao247.vn)</label>
+              <input type="url" name="nhandinh_url"
+                     value="{{ match.article.source_url if match.article else '' }}"
+                     placeholder="https://thethao247.vn/..."
+                     required
+                     class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] text-slate-600">
+                {% if match.article %}Cập nhật: {{ (match.article.crawled_at | local).strftime('%d/%m %H:%M') }}{% endif %}
+              </span>
+              <button type="submit"
+                      :disabled="loading"
+                      :class="loading ? 'opacity-50 cursor-wait' : 'hover:bg-slate-600'"
+                      class="bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+                <span x-show="!loading">Crawl &amp; Lưu</span>
+                <span x-show="loading">Đang tải...</span>
+              </button>
+            </div>
+          </form>
+          {% if match.article %}
+          <form method="POST" action="/admin/match/{{ match.id }}/nhandinh/delete" class="flex justify-end">
+            <button type="submit"
+                    onclick="return confirm('Xóa bài nhận định này?')"
+                    class="text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded-xl border border-red-800/40 hover:border-red-600/60 transition">
+              Xóa bài nhận định
+            </button>
+          </form>
+          {% endif %}
+        </div>
       </div>
 
     </div>{# end pre forms #}
@@ -583,6 +634,36 @@ document.addEventListener('alpine:init', () => {
     </div>
   </div>
 
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   TIN TỨC TAB
+════════════════════════════════════════════════════════════════════════════ #}
+<div x-show="tab==='news'" x-cloak>
+  <div class="glass border border-slate-700/50 rounded-2xl p-6 max-w-lg">
+    <h2 class="text-sm font-bold text-white mb-1">Crawl tin tức World Cup</h2>
+    <p class="text-xs text-slate-500 mb-1">Cập nhật danh sách bài viết từ <span class="text-amber-400">thethao247.vn/world-cup</span></p>
+    {% if articles_count %}
+    <p class="text-xs text-slate-400 mb-4">Hiện có <span class="text-white font-semibold">{{ articles_count }}</span> bài viết trong database.</p>
+    {% else %}
+    <p class="text-xs text-slate-400 mb-4">Chưa có bài viết nào. Nhấn nút bên dưới để crawl.</p>
+    {% endif %}
+    <div class="flex items-center gap-3">
+      <form method="POST" action="/admin/news/crawl">
+        <button type="submit"
+                class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-sm px-5 py-2.5 rounded-xl transition">
+          🔄 Cập nhật tin tức
+        </button>
+      </form>
+      {% if articles_count %}
+      <a href="/news" target="_blank"
+         class="text-sm text-slate-400 hover:text-slate-200 transition-colors">
+        Xem trang tin tức ↗
+      </a>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 </div>{# end tab wrapper #}

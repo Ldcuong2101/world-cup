@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from database import get_db, init_db
-from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result
+from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
@@ -15,6 +15,7 @@ from auth import (
 from scoring import compute_match_predictions, compute_special_event
 from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY
 from signup import router as signup_router
+from crawler import crawl_news_list, crawl_match_article
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -53,12 +54,15 @@ init_db()
 
 
 def flash(response, message: str, category: str = "info"):
-    response.set_cookie("flash_msg", message, max_age=5)
+    from urllib.parse import quote, unquote
+    response.set_cookie("flash_msg", quote(message, safe=""), max_age=5)
     response.set_cookie("flash_cat", category, max_age=5)
 
 
 def get_flash(request: Request):
-    msg = request.cookies.get("flash_msg")
+    from urllib.parse import unquote
+    raw = request.cookies.get("flash_msg")
+    msg = unquote(raw) if raw else None
     cat = request.cookies.get("flash_cat", "info")
     return msg, cat
 
@@ -215,6 +219,8 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         Prediction.match_id == match_id
     ).first()
 
+    article = db.query(MatchArticle).filter(MatchArticle.match_id == match_id).first()
+
     return templates.TemplateResponse("predict.html", {
         "request": request,
         "user": user,
@@ -223,6 +229,7 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "now": now,
         "can_predict": can_predict,
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
+        "article": article,
     })
 
 
@@ -388,6 +395,7 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
     matches = db.query(Match).order_by(Match.match_date).all()
     events = db.query(SpecialEvent).all()
     teams = db.query(Team).all()
+    articles_count = db.query(Article).count()
 
     now = datetime.utcnow()
     msg, cat = get_flash(request)
@@ -397,6 +405,7 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         "matches": matches,
         "events": events,
         "teams": teams,
+        "articles_count": articles_count,
         "flash_msg": msg,
         "flash_cat": cat,
         "STAGE_LABELS": STAGE_LABELS,
@@ -680,6 +689,111 @@ async def admin_create_special(
     db.add(SpecialEvent(title=title, description=description, deadline=dl, options=opts))
     db.commit()
     return redirect("/admin", "Special event created!", "success")
+
+
+# ─── News ─────────────────────────────────────────────────────────────────────
+
+@app.get("/news", response_class=HTMLResponse)
+async def news_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    page = max(1, int(request.query_params.get("page", 1)))
+    per_page = 12
+    total = db.query(Article).count()
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+
+    articles = (
+        db.query(Article)
+        .order_by(Article.crawled_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    msg, cat = get_flash(request)
+    resp = templates.TemplateResponse("news.html", {
+        "request": request,
+        "user": user,
+        "articles": articles,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
+        "flash_msg": msg,
+        "flash_cat": cat,
+    })
+    resp.delete_cookie("flash_msg")
+    resp.delete_cookie("flash_cat")
+    return resp
+
+
+@app.post("/admin/news/crawl")
+async def admin_crawl_news(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    items = await crawl_news_list()
+    new_count = 0
+    for item in items:
+        existing = db.query(Article).filter(Article.source_url == item["source_url"]).first()
+        if existing:
+            for k, v in item.items():
+                setattr(existing, k, v)
+        else:
+            db.add(Article(**item))
+            new_count += 1
+    db.commit()
+    return redirect("/admin", f"Đã cập nhật {len(items)} bài viết ({new_count} mới)", "success")
+
+
+@app.post("/admin/match/{match_id}/nhandinh")
+async def admin_set_nhandinh(
+    match_id: int,
+    request: Request,
+    nhandinh_url: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404)
+
+    result = await crawl_match_article(nhandinh_url)
+    if "error" in result:
+        return redirect("/admin", f"Lỗi crawl: {result['error']}", "error")
+
+    existing = db.query(MatchArticle).filter(MatchArticle.match_id == match_id).first()
+    if existing:
+        existing.source_url = result["source_url"]
+        existing.title = result["title"]
+        existing.content_html = result["content_html"]
+        existing.crawled_at = result["crawled_at"]
+    else:
+        db.add(MatchArticle(match_id=match_id, **result))
+    db.commit()
+    return redirect("/admin", "Đã lưu bài nhận định!", "success")
+
+
+@app.post("/admin/match/{match_id}/nhandinh/delete")
+async def admin_delete_nhandinh(
+    match_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    article = db.query(MatchArticle).filter(MatchArticle.match_id == match_id).first()
+    if article:
+        db.delete(article)
+        db.commit()
+    return redirect("/admin", "Đã xóa bài nhận định.", "success")
 
 
 @app.get("/rules", response_class=HTMLResponse)

@@ -21,6 +21,17 @@
     to   { opacity:1; transform:translateY(0); }
   }
   .hero-animate { animation: heroFadeIn .5s ease-out forwards; }
+  .article-body img { max-width:100%; border-radius:0.75rem; margin:1rem auto; display:block; }
+  .article-body h2 { font-size:1rem; font-weight:700; color:#f1f5f9; margin-top:1.25rem; margin-bottom:0.5rem; }
+  .article-body h3 { font-size:0.875rem; font-weight:600; color:#cbd5e1; margin-top:1rem; margin-bottom:0.375rem; }
+  .article-body h4 { font-size:0.8125rem; font-weight:600; color:#94a3b8; margin-top:0.75rem; }
+  .article-body p  { margin-bottom:0.75rem; }
+  .article-body ul, .article-body ol { padding-left:1.25rem; margin-bottom:0.75rem; }
+  .article-body li { margin-bottom:0.25rem; }
+  .article-body a  { color:#fbbf24; text-decoration:underline; }
+  .article-body a:hover { color:#fde68a; }
+  .article-body blockquote { border-left:3px solid #f59e0b; padding-left:1rem; color:#94a3b8; font-style:italic; margin:1rem 0; }
+  .article-body strong { color:#e2e8f0; }
 </style>
 
 <div x-data="{
@@ -247,6 +258,15 @@
             class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
       Stats
     </button>
+    {% if article %}
+    <button @click="tab = 'nhandinh'"
+            :class="tab === 'nhandinh'
+              ? 'text-white border-b-2 border-amber-400'
+              : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300'"
+            class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
+      Nhận định
+    </button>
+    {% endif %}
   </div>
 </div>
 
@@ -608,6 +628,30 @@
     <p class="text-slate-500 text-sm mt-1.5">Head-to-head records, form guide, and lineups coming soon</p>
   </div>
 </div>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   6. NHẬN ĐỊNH TAB
+   ══════════════════════════════════════════════════════════════════════════════ #}
+{% if article %}
+<div x-show="tab === 'nhandinh'" class="mt-6">
+  <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-8">
+    <div class="flex items-start justify-between gap-4 mb-5">
+      <h2 class="text-base font-bold text-white leading-snug">{{ article.title or "Nhận định trận đấu" }}</h2>
+      <a href="{{ article.source_url }}" target="_blank" rel="noopener noreferrer"
+         class="shrink-0 text-xs text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap">
+        Nguồn ↗
+      </a>
+    </div>
+    <div class="article-body text-slate-300 text-sm leading-relaxed">
+      {{ article.content_html | safe }}
+    </div>
+    <p class="text-[10px] text-slate-600 mt-6 pt-4 border-t border-slate-700/30">
+      Cập nhật lúc {{ (article.crawled_at | local).strftime('%H:%M %d/%m/%Y') }}
+    </p>
+  </div>
+</div>
+{% endif %}
 
 
 {# ══════════════════════════════════════════════════════════════════════════════
