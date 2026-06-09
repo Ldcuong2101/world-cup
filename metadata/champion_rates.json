@@ -1,0 +1,61 @@
+[
+  { "team": "France",              "rate": 5.50   },
+  { "team": "Spain",               "rate": 5.50   },
+  { "team": "England",             "rate": 7.50   },
+  { "team": "Portugal",            "rate": 8.00   },
+
+  { "team": "Brazil",              "rate": 8.50   },
+  { "team": "Argentina",           "rate": 10.00  },
+  { "team": "Germany",             "rate": 15.00  },
+  { "team": "Netherlands",         "rate": 15.00  },
+
+  { "team": "Norway",              "rate": 31.00  },
+  { "team": "Belgium",             "rate": 37.00  },
+  { "team": "Colombia",            "rate": 51.00  },
+  { "team": "Japan",               "rate": 51.00  },
+
+  { "team": "Morocco",             "rate": 71.00  },
+  { "team": "Uruguay",             "rate": 71.00  },
+  { "team": "USA",                 "rate": 71.00  },
+  { "team": "Mexico",              "rate": 75.00  },
+
+  { "team": "Croatia",             "rate": 81.00  },
+  { "team": "Switzerland",         "rate": 81.00  },
+  { "team": "Ecuador",             "rate": 101.00 },
+  { "team": "Turkey",              "rate": 101.00 },
+
+  { "team": "Austria",             "rate": 151.00 },
+  { "team": "Canada",              "rate": 151.00 },
+  { "team": "Paraguay",            "rate": 151.00 },
+  { "team": "Sweden",              "rate": 151.00 },
+
+  { "team": "Senegal",             "rate": 151.00 },
+  { "team": "Scotland",            "rate": 251.00 },
+  { "team": "Bosnia & Herzegovina","rate": 251.00 },
+  { "team": "Czech Republic",      "rate": 301.00 },
+
+  { "team": "Egypt",               "rate": 301.00 },
+  { "team": "Ivory Coast",         "rate": 301.00 },
+  { "team": "Australia",           "rate": 501.00 },
+  { "team": "Ghana",               "rate": 501.00 },
+
+  { "team": "South Korea",         "rate": 501.00 },
+  { "team": "Tunisia",             "rate": 501.00 },
+  { "team": "Algeria",             "rate": 501.00 },
+  { "team": "Iran",                "rate": 751.00 },
+
+  { "team": "Saudi Arabia",        "rate": 1001.00 },
+  { "team": "South Africa",        "rate": 1001.00 },
+  { "team": "DR Congo",            "rate": 1001.00 },
+  { "team": "Qatar",               "rate": 1501.00 },
+
+  { "team": "Uzbekistan",          "rate": 1501.00 },
+  { "team": "Panama",              "rate": 1501.00 },
+  { "team": "Iraq",                "rate": 1501.00 },
+  { "team": "Cape Verde",          "rate": 2001.00 },
+
+  { "team": "New Zealand",         "rate": 2501.00 },
+  { "team": "Jordan",              "rate": 2501.00 },
+  { "team": "Curaçao",             "rate": 2501.00 },
+  { "team": "Haiti",               "rate": 3001.00 }
+]

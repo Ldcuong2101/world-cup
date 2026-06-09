@@ -5,6 +5,19 @@ from .base import get_client, _NEWS_URL, _BASE_URL
 
 logger = logging.getLogger(__name__)
 
+# Date format from the site: "16:34 - 09/06"  (no year — assume current year)
+def _parse_date(text: str) -> datetime:
+    text = text.strip()
+    try:
+        # "HH:MM - DD/MM"
+        time_part, date_part = text.split(" - ")
+        hh, mm = time_part.split(":")
+        dd, mo = date_part.split("/")
+        year = datetime.utcnow().year
+        return datetime(year, int(mo), int(dd), int(hh), int(mm))
+    except Exception:
+        return None
+
 
 async def crawl_news_list():
     try:
@@ -17,28 +30,27 @@ async def crawl_news_list():
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Try multiple selector patterns — finalize against live HTML
-    cards = (
-        soup.select("article.item-news") or
-        soup.select("article") or
-        soup.select("div.item-news") or
-        soup.select("div.item") or
-        []
-    )
+    # Both compact and featured cards are <li><article class="d-flex ...">
+    cards = soup.select("li article.d-flex")
+    logger.info("Found %d article cards", len(cards))
 
     items = []
+    seen_urls = set()
+
     for card in cards:
         try:
-            link = card.find("a", href=True)
-            title_el = card.find(["h2", "h3", "h4"])
-            if not link and not title_el:
+            # Title + URL: from h2/h3 anchor, or fallback to thumbblock anchor
+            title_el = card.select_one("h2 a, h3 a")
+            thumb_link = card.select_one("a.thumbblock")
+
+            if not title_el and not thumb_link:
                 continue
 
-            title = (title_el or link).get_text(strip=True)
+            title = (title_el or thumb_link).get("title") or (title_el or thumb_link).get_text(strip=True)
             if not title:
                 continue
 
-            href = (link or card.find("a", href=True) or {}).get("href", "")
+            href = (title_el or thumb_link).get("href", "")
             if not href:
                 continue
             if href.startswith("/"):
@@ -46,37 +58,25 @@ async def crawl_news_list():
             elif not href.startswith("http"):
                 href = _BASE_URL + "/" + href
 
-            # Thumbnail — check lazy-load attributes first
+            if href in seen_urls:
+                continue
+            seen_urls.add(href)
+
+            # Thumbnail — src is already the real URL (not lazy-loaded via data-src)
             thumb = None
-            img = card.find("img")
+            img = card.select_one("a.thumbblock img")
             if img:
-                thumb = (
-                    img.get("data-src") or
-                    img.get("data-lazy-src") or
-                    img.get("data-original") or
-                    img.get("src")
-                )
+                thumb = img.get("src") or img.get("data-src") or img.get("data-original")
                 if thumb and ("placeholder" in thumb or "blank" in thumb or len(thumb) < 15):
                     thumb = None
 
-            # Excerpt
-            desc_el = card.find(
-                ["p", "div"],
-                class_=lambda c: c and any(
-                    x in " ".join(c) for x in ["desc", "summary", "sapo", "lead", "excerpt", "intro"]
-                )
-            )
-            excerpt = desc_el.get_text(strip=True)[:280] if desc_el else ""
+            # Excerpt — only present on featured (larger) cards
+            excerpt_el = card.select_one(".sapo_thumb_news")
+            excerpt = excerpt_el.get_text(strip=True)[:300] if excerpt_el else ""
 
-            # Published date
-            published_at = None
-            time_el = card.find("time")
-            if time_el and time_el.get("datetime"):
-                try:
-                    parsed = datetime.fromisoformat(time_el["datetime"].replace("Z", "+00:00"))
-                    published_at = parsed.replace(tzinfo=None)
-                except (ValueError, AttributeError):
-                    pass
+            # Published date — format: "16:34 - 09/06"
+            time_el = card.select_one(".time_post")
+            published_at = _parse_date(time_el.get_text()) if time_el else None
 
             items.append({
                 "title": title,
@@ -90,4 +90,5 @@ async def crawl_news_list():
             logger.warning("Error parsing article card: %s", e)
             continue
 
+    logger.info("Parsed %d articles", len(items))
     return items

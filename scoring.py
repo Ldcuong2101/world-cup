@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer
+from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, ChampionEvent, ChampionBet
 from config import STAGE_POINTS, STAR_MULTIPLIER
 
 
@@ -65,5 +65,24 @@ def compute_special_event(db: Session, event: SpecialEvent) -> None:
         user = db.query(User).filter(User.id == ans.user_id).first()
         if user:
             user.total_score = (user.total_score or 0) - old_points + earned
+
+    db.commit()
+
+
+def compute_champion_event(db: Session, event: ChampionEvent) -> None:
+    """Award winnings for a champion bet event once the winner is set."""
+    if not event.winner:
+        return
+
+    bets = db.query(ChampionBet).filter(ChampionBet.champion_event_id == event.id).all()
+
+    for bet in bets:
+        old_earned = bet.points_earned or 0
+        earned = int(bet.bet_amount * bet.rate) if bet.team_name == event.winner else 0
+        bet.points_earned = earned
+
+        user = db.query(User).filter(User.id == bet.user_id).first()
+        if user:
+            user.total_score = (user.total_score or 0) - old_earned + earned
 
     db.commit()

@@ -7,12 +7,12 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from database import get_db, init_db
-from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle
+from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
 )
-from scoring import compute_match_predictions, compute_special_event
+from scoring import compute_match_predictions, compute_special_event, compute_champion_event
 from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY
 from signup import router as signup_router
 from crawler import crawl_news_list, crawl_match_article
@@ -326,9 +326,13 @@ async def special_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=302)
 
     events = db.query(SpecialEvent).all()
+    champion_events = db.query(ChampionEvent).all()
     now = datetime.utcnow()
     user_answers = {a.special_event_id: a for a in db.query(SpecialEventAnswer).filter(
         SpecialEventAnswer.user_id == user.id
+    ).all()}
+    user_champion_bets = {b.champion_event_id: b for b in db.query(ChampionBet).filter(
+        ChampionBet.user_id == user.id
     ).all()}
 
     msg, cat = get_flash(request)
@@ -336,8 +340,10 @@ async def special_page(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "user": user,
         "events": events,
+        "champion_events": champion_events,
         "now": now,
         "user_answers": user_answers,
+        "user_champion_bets": user_champion_bets,
         "flash_msg": msg,
         "flash_cat": cat,
     })
@@ -382,6 +388,58 @@ async def special_answer(
     return redirect("/special", "Answer saved!", "success")
 
 
+@app.post("/champion/{event_id}/bet")
+async def champion_bet(
+    event_id: int,
+    request: Request,
+    team_name: str = Form(...),
+    bet_amount: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    event = db.query(ChampionEvent).filter(ChampionEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404)
+
+    now = datetime.utcnow()
+    if event.deadline <= now:
+        return redirect("/special", "Betting deadline has passed.", "error")
+
+    team_map = {t["name"]: t["rate"] for t in event.teams}
+    if team_name not in team_map:
+        return redirect("/special", "Invalid team selected.", "error")
+
+    if bet_amount < 1 or bet_amount > 50:
+        return redirect("/special", "Bet amount must be between 1 and 50 points.", "error")
+
+    existing = db.query(ChampionBet).filter(
+        ChampionBet.user_id == user.id,
+        ChampionBet.champion_event_id == event_id,
+    ).first()
+
+    if existing:
+        user.total_score = (user.total_score or 0) + existing.bet_amount - bet_amount
+        existing.team_name = team_name
+        existing.bet_amount = bet_amount
+        existing.rate = team_map[team_name]
+        existing.points_earned = None
+    else:
+        user.total_score = (user.total_score or 0) - bet_amount
+        db.add(ChampionBet(
+            user_id=user.id,
+            champion_event_id=event_id,
+            team_name=team_name,
+            bet_amount=bet_amount,
+            rate=team_map[team_name],
+        ))
+
+    db.commit()
+    return redirect("/special", f"Bet placed on {team_name}! {bet_amount} pts wagered.", "success")
+
+
 # ─── Admin ───────────────────────────────────────────────────────────────────
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -394,6 +452,7 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
 
     matches = db.query(Match).order_by(Match.match_date).all()
     events = db.query(SpecialEvent).all()
+    champion_events = db.query(ChampionEvent).all()
     teams = db.query(Team).all()
     articles_count = db.query(Article).count()
 
@@ -404,6 +463,7 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "matches": matches,
         "events": events,
+        "champion_events": champion_events,
         "teams": teams,
         "articles_count": articles_count,
         "flash_msg": msg,
@@ -689,6 +749,65 @@ async def admin_create_special(
     db.add(SpecialEvent(title=title, description=description, deadline=dl, options=opts))
     db.commit()
     return redirect("/admin", "Special event created!", "success")
+
+
+@app.post("/admin/champion/create")
+async def admin_create_champion(
+    request: Request,
+    title: str = Form(...),
+    description: str = Form(""),
+    deadline: str = Form(...),
+    teams_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    try:
+        dl = datetime.fromisoformat(deadline)
+    except ValueError:
+        return redirect("/admin", "Invalid deadline format", "error")
+
+    try:
+        teams = _json.loads(teams_json)
+    except Exception:
+        return redirect("/admin", "Invalid teams data", "error")
+
+    teams = [t for t in teams if t.get("name", "").strip() and t.get("rate")]
+    if len(teams) < 2:
+        return redirect("/admin", "Provide at least 2 teams with rates", "error")
+
+    flag_map = {tm.name: tm.flag_emoji for tm in db.query(Team).all()}
+    for t in teams:
+        t["name"] = t["name"].strip()
+        t["rate"] = float(t["rate"])
+        t["flag"] = flag_map.get(t["name"], "")
+
+    db.add(ChampionEvent(title=title, description=description, deadline=dl, teams=teams))
+    db.commit()
+    return redirect("/admin", "Champion event created!", "success")
+
+
+@app.post("/admin/champion/{event_id}/winner")
+async def admin_set_champion_winner(
+    event_id: int,
+    request: Request,
+    winner: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    event = db.query(ChampionEvent).filter(ChampionEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404)
+
+    event.winner = winner
+    db.commit()
+    compute_champion_event(db, event)
+    return redirect("/admin", f"Champion set to {winner} — points awarded!", "success")
 
 
 # ─── News ─────────────────────────────────────────────────────────────────────

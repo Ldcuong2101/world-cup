@@ -15,6 +15,7 @@ class User(Base):
 
     predictions = relationship("Prediction", back_populates="user")
     special_answers = relationship("SpecialEventAnswer", back_populates="user")
+    champion_bets = relationship("ChampionBet", back_populates="user")
 
 
 class PendingRegistration(Base):
@@ -143,6 +144,33 @@ class SpecialEventAnswer(Base):
 
     user = relationship("User", back_populates="special_answers")
     special_event = relationship("SpecialEvent", back_populates="answers")
+
+
+class ChampionEvent(Base):
+    __tablename__ = "champion_events"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    deadline = Column(DateTime, nullable=False)
+    # [{name: str, rate: float}]
+    teams = Column(JSON, nullable=False, default=list)
+    winner = Column(String, nullable=True)
+
+    bets = relationship("ChampionBet", back_populates="champion_event")
+
+
+class ChampionBet(Base):
+    __tablename__ = "champion_bets"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    champion_event_id = Column(Integer, ForeignKey("champion_events.id"), nullable=False)
+    team_name = Column(String, nullable=False)
+    bet_amount = Column(Integer, nullable=False)
+    rate = Column(Float, nullable=False)
+    points_earned = Column(Integer, nullable=True)
+
+    user = relationship("User", back_populates="champion_bets")
+    champion_event = relationship("ChampionEvent", back_populates="bets")
 
 
 class Article(Base):
