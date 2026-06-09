@@ -264,7 +264,7 @@
               ? 'text-white border-b-2 border-amber-400'
               : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300'"
             class="px-6 sm:px-8 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-colors">
-      Nhận định
+      Preview Article
     </button>
     {% endif %}
   </div>
@@ -631,13 +631,13 @@
 
 
 {# ══════════════════════════════════════════════════════════════════════════════
-   6. NHẬN ĐỊNH TAB
+   6. Preview Article TAB
    ══════════════════════════════════════════════════════════════════════════════ #}
 {% if article %}
 <div x-show="tab === 'nhandinh'" class="mt-6">
   <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-8">
     <div class="flex items-start justify-between gap-4 mb-5">
-      <h2 class="text-base font-bold text-white leading-snug">{{ article.title or "Nhận định trận đấu" }}</h2>
+      <h2 class="text-base font-bold text-white leading-snug">{{ article.title or "Preview Article" }}</h2>
       <a href="{{ article.source_url }}" target="_blank" rel="noopener noreferrer"
          class="shrink-0 text-xs text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap">
         Nguồn ↗

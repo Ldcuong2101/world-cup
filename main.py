@@ -776,7 +776,7 @@ async def admin_set_nhandinh(
     else:
         db.add(MatchArticle(match_id=match_id, **result))
     db.commit()
-    return redirect("/admin", "Đã lưu bài nhận định!", "success")
+    return redirect("/admin", "Preview article saved!", "success")
 
 
 @app.post("/admin/match/{match_id}/nhandinh/delete")
@@ -793,7 +793,7 @@ async def admin_delete_nhandinh(
     if article:
         db.delete(article)
         db.commit()
-    return redirect("/admin", "Đã xóa bài nhận định.", "success")
+    return redirect("/admin", "Preview article deleted.", "success")
 
 
 @app.get("/rules", response_class=HTMLResponse)

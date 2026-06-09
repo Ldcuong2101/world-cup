@@ -19,7 +19,7 @@ def get_db():
 
 
 def init_db():
-    from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, PendingRegistration, PasswordResetToken  # noqa
+    from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, PendingRegistration, PasswordResetToken, Article, MatchArticle  # noqa
     from sqlalchemy import text
     Base.metadata.create_all(bind=engine)
     # Add new columns to existing tables without a migration tool
