@@ -5,11 +5,6 @@
 
 {# ── Derived values ───────────────────────────────────────────────────────── #}
 {% set is_done = match.winner_id is not none %}
-{% set home_raw = (match.home_strength_rating * 100)|round|int %}
-{% set home_pct = [home_raw, 5]|max %}
-{% set home_pct = [home_pct, 73]|min %}
-{% set draw_pct = 22 %}
-{% set away_pct = 100 - home_pct - draw_pct %}
 {% set stage_pts = {'group':10,'r32':15,'r16':20,'r8':40,'semi':160,'r4':80,'final':320} %}
 {% set pts = stage_pts.get(match.stage, 10) %}
 {% set home_is_underdog = match.home_strength_rating < 0.45 %}
@@ -392,40 +387,35 @@
   {# ── Left column ──────────────────────────────────────────────────────────── #}
   <div class="space-y-5">
 
-    {# Win Probability #}
+    {# Community Picks #}
     <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-6">
-      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-4">Win Probability</p>
+      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-4">Community Picks</p>
 
-      {# Three percentages #}
+      {% if total_picks > 0 %}
       <div class="flex justify-between text-center mb-4">
         <div class="flex-1">
           <p class="text-xs text-slate-500 mb-1 leading-tight">{{ match.team_home.name }}</p>
-          <p class="text-2xl sm:text-3xl font-extrabold text-green-400">{{ home_pct }}%</p>
-        </div>
-        <div class="flex-1">
-          <p class="text-xs text-slate-500 mb-1">Draw</p>
-          <p class="text-2xl sm:text-3xl font-extrabold text-slate-400">{{ draw_pct }}%</p>
+          <p class="text-2xl sm:text-3xl font-extrabold text-green-400">{{ home_pick_pct }}%</p>
+          <p class="text-[11px] text-slate-600 mt-1">{{ home_picks }} picks</p>
         </div>
         <div class="flex-1">
           <p class="text-xs text-slate-500 mb-1 leading-tight">{{ match.team_away.name }}</p>
-          <p class="text-2xl sm:text-3xl font-extrabold text-red-400">{{ away_pct }}%</p>
+          <p class="text-2xl sm:text-3xl font-extrabold text-red-400">{{ away_pick_pct }}%</p>
+          <p class="text-[11px] text-slate-600 mt-1">{{ away_picks }} picks</p>
         </div>
       </div>
 
       {# Segmented bar #}
       <div class="flex h-2.5 rounded-full overflow-hidden gap-px">
         <div class="bg-green-500 rounded-l-full transition-all duration-700"
-             style="width:{{ home_pct }}%"></div>
-        <div class="bg-slate-500 transition-all duration-700"
-             style="width:{{ draw_pct }}%"></div>
+             style="width:{{ home_pick_pct }}%"></div>
         <div class="bg-red-500 rounded-r-full flex-1"></div>
       </div>
 
-      <div class="flex justify-between text-[10px] mt-2 text-slate-600">
-        <span>Home win</span>
-        <span>Draw</span>
-        <span>Away win</span>
-      </div>
+      <p class="text-[10px] mt-2 text-slate-600 text-center">{{ total_picks }} total picks</p>
+      {% else %}
+      <p class="text-sm text-slate-500 text-center py-4">No picks yet — be the first!</p>
+      {% endif %}
     </div>
 
 

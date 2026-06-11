@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -221,6 +222,18 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
 
     article = db.query(MatchArticle).filter(MatchArticle.match_id == match_id).first()
 
+    home_picks = db.query(func.count(Prediction.id)).filter(
+        Prediction.match_id == match_id,
+        Prediction.predicted_winner_id == match.team_home_id,
+    ).scalar() or 0
+    away_picks = db.query(func.count(Prediction.id)).filter(
+        Prediction.match_id == match_id,
+        Prediction.predicted_winner_id == match.team_away_id,
+    ).scalar() or 0
+    total_picks = home_picks + away_picks
+    home_pick_pct = round(home_picks / total_picks * 100) if total_picks > 0 else 50
+    away_pick_pct = 100 - home_pick_pct
+
     return templates.TemplateResponse("predict.html", {
         "request": request,
         "user": user,
@@ -230,6 +243,11 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "can_predict": can_predict,
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
         "article": article,
+        "home_picks": home_picks,
+        "away_picks": away_picks,
+        "total_picks": total_picks,
+        "home_pick_pct": home_pick_pct,
+        "away_pick_pct": away_pick_pct,
     })
 
 
