@@ -1,5 +1,8 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
@@ -7,24 +10,73 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from database import get_db, init_db
+from database import get_db, init_db, SessionLocal
 from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
 )
 from scoring import compute_match_predictions, compute_special_event, compute_champion_event
-from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY
+from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, FOOTBALL_DATA_API_KEY
 from signup import router as signup_router
 from crawler import crawl_news_list, crawl_match_article
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if FOOTBALL_DATA_API_KEY:
+        from livescores import livescore_poll_loop
+        asyncio.create_task(livescore_poll_loop(SessionLocal, FOOTBALL_DATA_API_KEY))
+    else:
+        print("[livescores] FOOTBALL_DATA_API_KEY not set — poller disabled")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.include_router(signup_router)
 templates = Jinja2Templates(directory="templates")
 
 _UTC7 = timedelta(hours=7)
 templates.env.filters["local"] = lambda dt: dt + _UTC7 if dt else dt
+
+def _compute_group_standings(db):
+    all_teams = db.query(Team).all()
+    standings = defaultdict(dict)
+    for team in all_teams:
+        if team.group:
+            standings[team.group][team.id] = {
+                "team": team, "mp": 0, "w": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
+            }
+    for m in db.query(Match).order_by(Match.match_date).all():
+        if m.stage == "group" and m.winner_id is not None:
+            g = m.team_home.group
+            for tid in [m.team_home_id, m.team_away_id]:
+                if tid not in standings[g]:
+                    standings[g][tid] = {
+                        "team": (m.team_home if tid == m.team_home_id else m.team_away),
+                        "mp": 0, "w": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
+                    }
+            standings[g][m.team_home_id]["mp"] += 1
+            standings[g][m.team_away_id]["mp"] += 1
+            standings[g][m.team_home_id]["gf"] += m.score_home or 0
+            standings[g][m.team_home_id]["ga"] += m.score_away or 0
+            standings[g][m.team_away_id]["gf"] += m.score_away or 0
+            standings[g][m.team_away_id]["ga"] += m.score_home or 0
+            if m.winner_id == m.team_home_id:
+                standings[g][m.team_home_id]["w"] += 1
+                standings[g][m.team_home_id]["pts"] += 3
+                standings[g][m.team_away_id]["l"] += 1
+            else:
+                standings[g][m.team_away_id]["w"] += 1
+                standings[g][m.team_away_id]["pts"] += 3
+                standings[g][m.team_home_id]["l"] += 1
+    groups_sorted = {}
+    for grp, teams_dict in sorted(standings.items()):
+        rows = sorted(teams_dict.values(), key=lambda r: (-r["pts"], -(r["gf"] - r["ga"]), -r["gf"]))
+        groups_sorted[grp] = rows
+    return groups_sorted
+
 
 def _fmt_rating(val):
     if val is None:
@@ -145,41 +197,7 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
     upcoming_by_date = group_by_date_sorted(upcoming, reverse=False)
     past_by_date = group_by_date_sorted(past, reverse=True)
 
-    # Compute group standings
-    all_teams = db.query(Team).all()
-    standings = defaultdict(dict)  # group -> {team_id: stats}
-    for team in all_teams:
-        if team.group:
-            standings[team.group][team.id] = {
-                "team": team, "mp": 0, "w": 0, "l": 0,
-                "gf": 0, "ga": 0, "pts": 0,
-            }
-    for m in all_matches:
-        if m.stage == "group" and m.winner_id is not None:
-            g = m.team_home.group
-            for tid in [m.team_home_id, m.team_away_id]:
-                if tid not in standings[g]:
-                    standings[g][tid] = {"team": (m.team_home if tid == m.team_home_id else m.team_away),
-                                         "mp": 0, "w": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0}
-            standings[g][m.team_home_id]["mp"] += 1
-            standings[g][m.team_away_id]["mp"] += 1
-            standings[g][m.team_home_id]["gf"] += m.score_home or 0
-            standings[g][m.team_home_id]["ga"] += m.score_away or 0
-            standings[g][m.team_away_id]["gf"] += m.score_away or 0
-            standings[g][m.team_away_id]["ga"] += m.score_home or 0
-            if m.winner_id == m.team_home_id:
-                standings[g][m.team_home_id]["w"] += 1
-                standings[g][m.team_home_id]["pts"] += 3
-                standings[g][m.team_away_id]["l"] += 1
-            else:
-                standings[g][m.team_away_id]["w"] += 1
-                standings[g][m.team_away_id]["pts"] += 3
-                standings[g][m.team_home_id]["l"] += 1
-
-    groups_sorted = {}
-    for grp, teams_dict in sorted(standings.items()):
-        rows = sorted(teams_dict.values(), key=lambda r: (-r["pts"], -(r["gf"] - r["ga"]), -r["gf"]))
-        groups_sorted[grp] = rows
+    groups_sorted = _compute_group_standings(db)
 
     msg, cat = get_flash(request)
     resp = templates.TemplateResponse("matches.html", {
@@ -222,6 +240,12 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
 
     article = db.query(MatchArticle).filter(MatchArticle.match_id == match_id).first()
 
+    group_key = match.team_home.group if match.team_home else None
+    group_rows = None
+    if group_key and match.stage == "group":
+        groups_sorted = _compute_group_standings(db)
+        group_rows = groups_sorted.get(group_key)
+
     home_picks = db.query(func.count(Prediction.id)).filter(
         Prediction.match_id == match_id,
         Prediction.predicted_winner_id == match.team_home_id,
@@ -248,6 +272,8 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "total_picks": total_picks,
         "home_pick_pct": home_pick_pct,
         "away_pick_pct": away_pick_pct,
+        "group_rows": group_rows,
+        "group_key": group_key,
     })
 
 
@@ -712,13 +738,66 @@ async def admin_set_highlight(
     return redirect("/admin", "Highlight info saved!", "success")
 
 
-@app.get("/admin/match/{match_id}/fetch-score")
-async def admin_fetch_score(match_id: int, request: Request, db: Session = Depends(get_db)):
-    from fastapi.responses import JSONResponse
+@app.post("/admin/match/{match_id}/fd-id")
+async def admin_set_fd_id(
+    match_id: int,
+    request: Request,
+    fd_match_id: str = Form(default=""),
+    db: Session = Depends(get_db),
+):
     user = get_current_user(request, db)
     if not user or not user.is_admin:
         raise HTTPException(status_code=403)
-    return JSONResponse({"error": "Live score API not configured — enter scores manually."})
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404)
+    try:
+        match.fd_match_id = int(fd_match_id.strip()) if fd_match_id.strip() else None
+    except ValueError:
+        return redirect("/admin", "Invalid football-data.org match ID", "error")
+    db.commit()
+    return redirect("/admin", "football-data.org match ID saved!", "success")
+
+
+@app.get("/admin/match/{match_id}/fetch-score")
+async def admin_fetch_score(match_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    if not FOOTBALL_DATA_API_KEY:
+        return JSONResponse({"error": "FOOTBALL_DATA_API_KEY not set in .env"})
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404)
+
+    if not match.fd_match_id:
+        return JSONResponse({"error": "No football-data.org match ID set for this match — add it in the Live Score section."})
+
+    from livescores import fetch_match_from_api, parse_api_response
+    import httpx
+    try:
+        data = await fetch_match_from_api(match.fd_match_id, FOOTBALL_DATA_API_KEY)
+        parsed = parse_api_response(data)
+
+        if parsed["score_home"] is not None:
+            match.score_home = parsed["score_home"]
+            match.score_away = parsed["score_away"]
+        match.live_status = parsed["status"]
+        match.live_minute = parsed["minute"]
+        db.commit()
+
+        return JSONResponse({
+            "score_home": parsed["score_home"],
+            "score_away": parsed["score_away"],
+            "status": parsed["status"],
+            "minute": parsed["minute"],
+        })
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse({"error": f"API error {exc.response.status_code}: {exc.response.text[:200]}"})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)})
 
 
 @app.post("/admin/special/{event_id}/answer")

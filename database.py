@@ -28,6 +28,9 @@ def init_db():
             "ALTER TABLE users ADD COLUMN email TEXT",
             "ALTER TABLE users ADD COLUMN stars_remaining INTEGER DEFAULT 3",
             "ALTER TABLE predictions ADD COLUMN use_star BOOLEAN DEFAULT 0",
+            "ALTER TABLE matches ADD COLUMN fd_match_id INTEGER",
+            "ALTER TABLE matches ADD COLUMN live_status TEXT",
+            "ALTER TABLE matches ADD COLUMN live_minute INTEGER",
         ]:
             try:
                 conn.execute(text(stmt))

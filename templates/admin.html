@@ -391,6 +391,25 @@ document.addEventListener('alpine:init', () => {
     {# POST-MATCH forms #}
     <div class="px-5 py-4 space-y-5 border-t border-slate-700/40">
 
+      {# 0. Live Score ID #}
+      <form method="POST" action="/admin/match/{{ match.id }}/fd-id"
+            class="flex items-center gap-3 pb-4 border-b border-slate-700/30">
+        <div class="flex-1 min-w-0">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+            football-data.org Match ID
+            {% if match.fd_match_id %}<span class="ml-2 text-green-400 normal-case font-normal">✓ {{ match.fd_match_id }}</span>{% endif %}
+          </label>
+          <input type="number" name="fd_match_id"
+                 value="{{ match.fd_match_id or '' }}"
+                 placeholder="e.g. 123456"
+                 class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition">
+        </div>
+        <button type="submit"
+                class="shrink-0 mt-5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition">
+          Save ID
+        </button>
+      </form>
+
       {# 1. Result #}
       <form method="POST" action="/admin/match/{{ match.id }}/result">
         <div class="space-y-4">

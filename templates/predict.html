@@ -172,6 +172,56 @@
 
     </div>
 
+    {# ── LIVE: score visible, match in progress ── #}
+    {% elif not can_predict and match.score_home is not none %}
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-8">
+      <div class="flex flex-col items-center gap-2 text-center">
+        <img src="https://flagcdn.com/w80/{{ match.team_home.flag_code }}.png"
+             alt="{{ match.team_home.name }}"
+             class="w-20 h-14 sm:w-24 sm:h-16 object-cover rounded-lg shadow-lg"
+             onerror="this.style.display='none'">
+        <span class="text-base sm:text-xl font-bold leading-tight text-white">{{ match.team_home.name }}</span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Home</span>
+      </div>
+
+      <div class="flex flex-col items-center gap-1 select-none min-w-[160px] sm:min-w-[200px]">
+        <div class="flex items-center gap-2 sm:gap-4">
+          <span class="text-5xl sm:text-7xl font-black tabular-nums leading-none text-white">{{ match.score_home }}</span>
+          <span class="text-3xl sm:text-5xl font-thin text-slate-600 leading-none mx-1">—</span>
+          <span class="text-5xl sm:text-7xl font-black tabular-nums leading-none text-white">{{ match.score_away }}</span>
+        </div>
+        <div class="mt-3">
+          {% if match.live_status == 'IN_PLAY' %}
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest bg-red-900/50 text-red-300 px-3 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></span>
+            {% if match.live_minute %}{{ match.live_minute }}'{% else %}LIVE{% endif %}
+          </span>
+          {% elif match.live_status == 'PAUSED' %}
+          <span class="text-[11px] font-bold uppercase tracking-widest bg-amber-900/40 text-amber-300 px-3 py-1 rounded-full">Half Time</span>
+          {% elif match.live_status == 'EXTRA_TIME' %}
+          <span class="text-[11px] font-bold uppercase tracking-widest bg-blue-900/40 text-blue-300 px-3 py-1 rounded-full">Extra Time</span>
+          {% elif match.live_status == 'PENALTY_SHOOTOUT' %}
+          <span class="text-[11px] font-bold uppercase tracking-widest bg-purple-900/40 text-purple-300 px-3 py-1 rounded-full">Penalties</span>
+          {% elif match.live_status == 'FINISHED' %}
+          <span class="text-[11px] font-bold uppercase tracking-widest bg-slate-700/60 text-slate-400 px-3 py-1 rounded-full">FT — Pending result</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest bg-red-900/50 text-red-300 px-3 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></span>Live
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex flex-col items-center gap-2 text-center">
+        <img src="https://flagcdn.com/w80/{{ match.team_away.flag_code }}.png"
+             alt="{{ match.team_away.name }}"
+             class="w-20 h-14 sm:w-24 sm:h-16 object-cover rounded-lg shadow-lg"
+             onerror="this.style.display='none'">
+        <span class="text-base sm:text-xl font-bold leading-tight text-white">{{ match.team_away.name }}</span>
+        <span class="text-[10px] uppercase tracking-widest text-slate-600">Away</span>
+      </div>
+    </div>
+
     {# ── UPCOMING: compact VS layout ── #}
     {% else %}
     <div class="flex items-center justify-center gap-4 sm:gap-12 max-w-2xl mx-auto">
@@ -581,22 +631,64 @@
   {# ── Right column ─────────────────────────────────────────────────────────── #}
   <div class="mt-5 lg:mt-0 space-y-5">
 
-    {# Group standings (placeholder — standings data not passed to this route) #}
-    <div class="glass border border-slate-700/50 rounded-2xl p-5">
-      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-3">
-        {% if match.group_name %}Standings &nbsp;·&nbsp; {{ match.group_name }}
-        {% else %}Tournament Bracket{% endif %}
+    {# Group Standings #}
+    {% if group_rows %}
+    <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+      <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold px-5 pt-5 pb-3">
+        Standings &nbsp;·&nbsp; {{ match.group_name }}
       </p>
-      <div class="flex flex-col items-center justify-center py-6 text-center gap-2">
-        <span class="text-4xl mb-1">📊</span>
-        <p class="text-slate-300 text-sm font-semibold">Group standings update after each match</p>
-        <p class="text-slate-500 text-xs">Check back as the tournament progresses</p>
-        <a href="/matches"
-           class="mt-2 text-amber-400 hover:text-amber-300 text-xs font-semibold transition-colors inline-flex items-center gap-1">
-          View all matches →
-        </a>
+
+      {# Column headers #}
+      <div class="grid items-center px-5 py-2 border-b border-slate-700/40
+                  text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
+           style="grid-template-columns: 20px minmax(0,1fr) 26px 26px 26px 26px 34px">
+        <span>#</span>
+        <span>Team</span>
+        <span class="text-center">MP</span>
+        <span class="text-center">W</span>
+        <span class="text-center">L</span>
+        <span class="text-center">GF</span>
+        <span class="text-center" style="color: rgb(251 191 36 / 0.8)">Pts</span>
+      </div>
+
+      {% for row in group_rows %}
+      {% if loop.index == 3 %}
+      <div class="mx-5 border-t border-dashed border-green-700/50"></div>
+      {% endif %}
+      <div class="grid items-center px-5 py-3 transition-colors hover:bg-slate-700/40
+                  {% if row.team.id == match.team_home_id or row.team.id == match.team_away_id %}bg-amber-500/5{% endif %}
+                  {% if loop.index <= 2 %}border-l-2 border-green-500{% else %}border-l-2 border-transparent{% endif %}"
+           style="grid-template-columns: 20px minmax(0,1fr) 26px 26px 26px 26px 34px">
+        <span class="text-sm font-bold
+                     {% if loop.index == 1 %}text-amber-400
+                     {% elif loop.index == 2 %}text-slate-300
+                     {% else %}text-slate-500{% endif %}">{{ loop.index }}</span>
+        <div class="flex items-center gap-2 min-w-0 pr-2">
+          {% if row.team.flag_code %}
+          <img src="https://flagcdn.com/w40/{{ row.team.flag_code }}.png"
+               alt="{{ row.team.name }}"
+               class="rounded-sm flex-shrink-0 shadow-sm object-cover"
+               style="width:26px;height:18px;">
+          {% endif %}
+          <span class="text-sm font-semibold truncate
+                       {% if row.team.id == match.team_home_id or row.team.id == match.team_away_id %}text-amber-200{% else %}text-white{% endif %}">
+            {{ row.team.name }}
+          </span>
+        </div>
+        <span class="text-center text-sm text-slate-400">{{ row.mp }}</span>
+        <span class="text-center text-sm text-slate-400">{{ row.w }}</span>
+        <span class="text-center text-sm text-slate-400">{{ row.l }}</span>
+        <span class="text-center text-sm text-slate-400">{{ row.gf }}</span>
+        <span class="text-center text-base font-bold text-amber-400">{{ row.pts }}</span>
+      </div>
+      {% endfor %}
+
+      <div class="px-5 py-3 border-t border-slate-700/40 flex items-center gap-2">
+        <span class="text-green-400 text-sm">↑</span>
+        <span class="text-green-400 text-xs font-medium">Top 2 advance to Round of 32</span>
       </div>
     </div>
+    {% endif %}
 
     {# Community predictions (derived from win probability as a proxy) #}
 

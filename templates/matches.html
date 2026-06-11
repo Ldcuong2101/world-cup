@@ -96,6 +96,25 @@
             </div>
           </div>
           {% endif %}
+        {% elif not can_predict and match.score_home is not none %}
+          {# Live score #}
+          <div class="flex items-center gap-1">
+            <span class="text-xl font-black tabular-nums text-white">{{ match.score_home }}</span>
+            <span class="text-slate-600 font-bold">–</span>
+            <span class="text-xl font-black tabular-nums text-white">{{ match.score_away }}</span>
+          </div>
+          {% if match.live_status == 'IN_PLAY' %}
+          <span class="flex items-center gap-1 text-[10px] font-bold text-red-400">
+            <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block"></span>
+            {% if match.live_minute %}{{ match.live_minute }}'{% else %}LIVE{% endif %}
+          </span>
+          {% elif match.live_status == 'PAUSED' %}
+          <span class="text-[10px] font-bold text-amber-400">HT</span>
+          {% elif match.live_status == 'EXTRA_TIME' %}
+          <span class="text-[10px] font-bold text-blue-400">ET</span>
+          {% elif match.live_status == 'PENALTY_SHOOTOUT' %}
+          <span class="text-[10px] font-bold text-purple-400">PEN</span>
+          {% endif %}
         {% else %}
           <span class="text-xs font-bold text-slate-600 tracking-widest">VS</span>
           {% if match.rating_home is not none and match.rating_away is not none %}
@@ -142,9 +161,27 @@
         <span class="text-lg font-extrabold {% if is_winner %}text-amber-400{% else %}text-slate-600{% endif %}">
           {{ score }}
         </span>
+        {% elif not can_predict and score is not none %}
+        <span class="text-lg font-extrabold text-white">{{ score }}</span>
         {% endif %}
       </div>
-      {% if loop.first %}<div class="text-center text-xs text-slate-600 font-bold">— VS —</div>{% endif %}
+      {% if loop.first %}
+      <div class="text-center text-xs font-bold">
+        {% if not can_predict and not is_done and match.score_home is not none %}
+          {% if match.live_status == 'IN_PLAY' %}
+          <span class="flex items-center justify-center gap-1 text-red-400">
+            <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block"></span>
+            {% if match.live_minute %}{{ match.live_minute }}'{% else %}LIVE{% endif %}
+          </span>
+          {% elif match.live_status == 'PAUSED' %}<span class="text-amber-400">HT</span>
+          {% elif match.live_status == 'EXTRA_TIME' %}<span class="text-blue-400">ET</span>
+          {% elif match.live_status == 'PENALTY_SHOOTOUT' %}<span class="text-purple-400">PEN</span>
+          {% else %}<span class="text-slate-600">— VS —</span>{% endif %}
+        {% else %}
+        <span class="text-slate-600">— VS —</span>
+        {% endif %}
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
 

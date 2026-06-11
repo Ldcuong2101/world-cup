@@ -1,4 +1,9 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 SECRET_KEY = "worldcup-secret-key-change-in-production-2026"
+FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
 SESSION_COOKIE = "wc_session"
 
 STAGE_POINTS = {

@@ -69,6 +69,11 @@ class Match(Base):
     players_note = Column(String, nullable=True)
     preview_text = Column(String, nullable=True)
 
+    # Live score tracking (updated by background poller)
+    fd_match_id = Column(Integer, nullable=True)   # football-data.org match ID
+    live_status = Column(String, nullable=True)    # IN_PLAY / PAUSED / EXTRA_TIME / FINISHED
+    live_minute = Column(Integer, nullable=True)   # current minute when IN_PLAY
+
     # Post-match media
     highlight_url = Column(String, nullable=True)
     match_summary = Column(String, nullable=True)
