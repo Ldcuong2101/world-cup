@@ -17,7 +17,7 @@ from auth import (
     get_current_user, SESSION_COOKIE,
 )
 from scoring import compute_match_predictions, compute_special_event, compute_champion_event
-from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, FOOTBALL_DATA_API_KEY
+from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, FOOTBALL_DATA_API_KEY, LIVE_EARLY_MINUTES
 from signup import router as signup_router
 from crawler import crawl_news_list, crawl_match_article
 
@@ -231,7 +231,11 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=404)
 
     now = datetime.utcnow()
-    can_predict = match.match_date > now
+    _live_statuses = {'IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT', 'FINISHED'}
+    # is_live: true from LIVE_EARLY_MINUTES before kickoff — controls UI (stream, stats tab default)
+    is_live = match.live_status in _live_statuses or (match.match_date - timedelta(minutes=LIVE_EARLY_MINUTES)) <= now
+    # can_predict: true until actual kickoff AND match not in progress per API
+    can_predict = match.match_date > now and match.live_status not in _live_statuses
 
     existing = db.query(Prediction).filter(
         Prediction.user_id == user.id,
@@ -274,6 +278,7 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "away_pick_pct": away_pick_pct,
         "group_rows": group_rows,
         "group_key": group_key,
+        "is_live": is_live,
     })
 
 
@@ -294,7 +299,8 @@ async def predict_submit(
         raise HTTPException(status_code=404)
 
     now = datetime.utcnow()
-    if match.match_date <= now:
+    _live_statuses = {'IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT', 'FINISHED'}
+    if match.match_date <= now or match.live_status in _live_statuses:
         return redirect(f"/predict/{match_id}", "Prediction deadline has passed", "error")
 
     if predicted_winner_id not in [match.team_home_id, match.team_away_id]:

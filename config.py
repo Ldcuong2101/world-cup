@@ -30,3 +30,7 @@ STAGE_ORDER = ["group", "r32", "r16", "r8", "semi", "r4", "final"]
 
 STAR_COUNT = 3          # stars each user gets for the tournament
 STAR_MULTIPLIER = 2     # star doubles both reward and penalty
+
+# Minutes before kickoff to switch the match page to "live" mode
+# (show stream embed, default to Stats tab) — predictions stay open until actual kickoff
+LIVE_EARLY_MINUTES = 10

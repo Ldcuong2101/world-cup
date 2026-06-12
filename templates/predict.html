@@ -33,7 +33,7 @@
   selected: '{{ existing.predicted_winner_id if existing else '' }}',
   homeId:   '{{ match.team_home_id }}',
   awayId:   '{{ match.team_away_id }}',
-  tab:      '{{ 'result' if is_done else 'prediction' }}'
+  tab:      '{{ 'result' if is_done else ('stats' if (is_live and not can_predict) else 'prediction') }}'
 }">
 
 {# ══════════════════════════════════════════════════════════════════════════════
@@ -375,54 +375,6 @@
   </div>
   {% endif %}
 
-  {# Video embeds #}
-  {% set embed_url = (match.highlight_url or match.youtube_url)|youtube_embed %}
-  {% set has_second = match.highlight_url and match.youtube_url and match.highlight_url != match.youtube_url %}
-  {% set embed_url2 = match.youtube_url|youtube_embed if has_second else '' %}
-
-  {% if embed_url %}
-  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
-    {# Primary video — highlight takes priority #}
-    <div class="aspect-video w-full">
-      <iframe src="{{ embed_url }}"
-              class="w-full h-full"
-              frameborder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy"
-              title="{% if match.highlight_url %}Match Highlights{% else %}Match Preview{% endif %}">
-      </iframe>
-    </div>
-    <div class="px-4 py-2.5 flex items-center justify-between">
-      <span class="text-xs font-semibold text-slate-400">
-        {% if match.highlight_url %}🎬 Highlights{% else %}📺 Preview{% endif %}
-      </span>
-      <a href="{{ match.highlight_url or match.youtube_url }}" target="_blank" rel="noopener"
-         class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
-    </div>
-
-    {# Second video (preview) if both URLs are set and different #}
-    {% if has_second and embed_url2 %}
-    <div class="border-t border-slate-700/40">
-      <div class="aspect-video w-full">
-        <iframe src="{{ embed_url2 }}"
-                class="w-full h-full"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
-                loading="lazy"
-                title="Match Preview">
-        </iframe>
-      </div>
-      <div class="px-4 py-2.5 flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-400">📺 Preview</span>
-        <a href="{{ match.youtube_url }}" target="_blank" rel="noopener"
-           class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
 
 </div>
 {% endif %}
@@ -470,8 +422,25 @@
 
 
     {# Prediction form #}
-    <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-6">
+    <div class="glass border {% if not can_predict %}border-red-500/30{% else %}border-slate-700/50{% endif %} rounded-2xl p-5 sm:p-6">
       <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-4">Your Prediction</p>
+
+      {% if not can_predict %}
+      <div class="flex flex-col items-center gap-3 py-6 text-center">
+        <span class="text-3xl">🔒</span>
+        <p class="text-slate-200 font-bold">Predictions Locked</p>
+        <p class="text-slate-500 text-sm">This match is underway — predictions are closed.</p>
+        {% if existing %}
+        <div class="mt-2 bg-slate-800/60 border border-slate-700/40 rounded-xl px-4 py-3 text-sm">
+          Your pick: <span class="font-bold text-amber-300">
+            {% if existing.predicted_winner_id == match.team_home_id %}{{ match.team_home.name }}
+            {% else %}{{ match.team_away.name }}{% endif %}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% else %}
 
       {% if existing %}
       <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2.5 mb-4 text-xs text-center text-blue-300">
@@ -623,6 +592,7 @@
         </button>
 
       </form>
+      {% endif %}{# end is_live check #}
     </div>
 
   </div>{# end left column #}
@@ -692,6 +662,31 @@
 
     {# Community predictions (derived from win probability as a proxy) #}
 
+    {# Pre-match YouTube preview #}
+    {% if not is_done and match.youtube_url %}
+    {% set preview_embed = match.youtube_url | youtube_embed %}
+    {% if preview_embed %}
+    <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-slate-700/40">
+        <span class="text-xs font-bold uppercase tracking-widest text-slate-400">📺 Match Preview</span>
+      </div>
+      <div class="aspect-video w-full">
+        <iframe src="{{ preview_embed }}"
+                class="w-full h-full"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                loading="lazy"
+                title="Match Preview">
+        </iframe>
+      </div>
+      <div class="px-4 py-2 text-right">
+        <a href="{{ match.youtube_url }}" target="_blank" rel="noopener"
+           class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
 
   </div>{# end right column #}
 
@@ -702,13 +697,269 @@
 {# ══════════════════════════════════════════════════════════════════════════════
    5. STATS TAB
    ══════════════════════════════════════════════════════════════════════════════ #}
-<div x-show="tab === 'stats'" class="mt-6">
+<div x-show="tab === 'stats'" class="mt-6 space-y-4">
+
+  {# ── LIVE: embedded stream ── #}
+  {% if is_live and match.youtube_url %}
+  {% set live_embed = match.youtube_url | youtube_embed %}
+  {% if live_embed %}
+  <div class="glass border border-red-500/30 rounded-2xl overflow-hidden">
+    <div class="px-4 py-2.5 flex items-center gap-2 border-b border-red-500/20">
+      <span class="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
+      <span class="text-xs font-bold uppercase tracking-widest text-red-300">Live Stream</span>
+      {% if match.live_status == 'IN_PLAY' and match.live_minute %}
+      <span class="ml-auto text-xs text-red-400 font-semibold">{{ match.live_minute }}'</span>
+      {% endif %}
+    </div>
+    <div class="aspect-video w-full">
+      <iframe src="{{ live_embed }}"
+              class="w-full h-full"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              title="Live Match Stream">
+      </iframe>
+    </div>
+    <div class="px-4 py-2 text-right">
+      <a href="{{ match.youtube_url }}" target="_blank" rel="noopener"
+         class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open ↗</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {# ── FINISHED: highlights video ── #}
+  {% if is_done and match.highlight_url %}
+  {% set hl_embed = match.highlight_url | youtube_embed %}
+  {% if hl_embed %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <div class="px-4 py-2.5 flex items-center gap-2 border-b border-slate-700/40">
+      <span class="text-xs font-bold uppercase tracking-widest text-slate-400">🎬 Match Highlights</span>
+    </div>
+    <div class="aspect-video w-full">
+      <iframe src="{{ hl_embed }}"
+              class="w-full h-full"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"
+              title="Match Highlights">
+      </iframe>
+    </div>
+    <div class="px-4 py-2 text-right">
+      <a href="{{ match.highlight_url }}" target="_blank" rel="noopener"
+         class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Open on YouTube ↗</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {# ── GOALS TIMELINE (live or finished) ── #}
+  {% if match.goals_data %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold px-5 pt-5 pb-3">Goals</p>
+    <div class="divide-y divide-slate-700/40">
+      {% for g in match.goals_data %}
+      {% set is_home_goal = (g.team_id == match.team_home_id) %}
+      <div class="flex items-center gap-3 px-5 py-3
+                  {% if not is_home_goal %}flex-row-reverse{% endif %}">
+        {# Minute badge #}
+        <span class="shrink-0 text-[11px] font-bold text-slate-500 tabular-nums w-9 text-center">
+          {{ g.minute }}'{% if g.injury_time %}+{{ g.injury_time }}{% endif %}
+        </span>
+        {# Goal type icon #}
+        <span class="shrink-0 text-base">
+          {% if g.type == 'PENALTY' %}⚽ P
+          {% elif g.type == 'OWN_GOAL' %}🔴
+          {% else %}⚽{% endif %}
+        </span>
+        {# Scorer info #}
+        <div class="flex-1 {% if not is_home_goal %}text-right{% endif %}">
+          <span class="text-sm font-semibold text-white">{{ g.scorer or '—' }}</span>
+          {% if g.assist %}
+          <span class="text-[11px] text-slate-500 block">Assist: {{ g.assist }}</span>
+          {% endif %}
+        </div>
+        {# Running score #}
+        {% if g.score_home is not none %}
+        <span class="shrink-0 text-xs font-bold text-amber-400 tabular-nums bg-amber-500/10 px-2 py-0.5 rounded-full">
+          {{ g.score_home }}–{{ g.score_away }}
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── TEAM STATISTICS ── #}
+  {% if match.stats_data and (match.stats_data.home or match.stats_data.away) %}
+  {% set hs = match.stats_data.home or {} %}
+  {% set as_ = match.stats_data.away or {} %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold px-5 pt-5 pb-3">Match Stats</p>
+    {# Header row #}
+    <div class="grid grid-cols-3 text-center px-5 pb-3 text-xs font-semibold">
+      <span class="text-left text-white truncate">{{ match.team_home.name }}</span>
+      <span class="text-slate-500"></span>
+      <span class="text-right text-white truncate">{{ match.team_away.name }}</span>
+    </div>
+    {% set stat_rows = [
+      ('ball_possession', 'Possession', '%'),
+      ('shots', 'Shots', ''),
+      ('shots_on_goal', 'Shots on Target', ''),
+      ('fouls', 'Fouls', ''),
+      ('corner_kicks', 'Corners', ''),
+      ('offsides', 'Offsides', ''),
+      ('yellow_cards', 'Yellow Cards', ''),
+      ('red_cards', 'Red Cards', ''),
+      ('saves', 'Saves', ''),
+    ] %}
+    <div class="divide-y divide-slate-700/40">
+      {% for key, label, unit in stat_rows %}
+      {% set hv = hs.get(key) %}
+      {% set av = as_.get(key) %}
+      {% if hv is not none or av is not none %}
+      {% set hv = hv or 0 %}
+      {% set av = av or 0 %}
+      {% set total = hv + av %}
+      <div class="px-5 py-3">
+        <div class="grid grid-cols-3 text-center text-sm mb-2">
+          <span class="text-left font-bold text-white">{{ hv }}{{ unit }}</span>
+          <span class="text-[11px] text-slate-500 uppercase tracking-wide self-center">{{ label }}</span>
+          <span class="text-right font-bold text-white">{{ av }}{{ unit }}</span>
+        </div>
+        {% if total > 0 %}
+        <div class="flex h-1.5 rounded-full overflow-hidden gap-px">
+          <div class="bg-amber-400 rounded-l-full transition-all"
+               style="width:{{ (hv / total * 100) | round | int }}%"></div>
+          <div class="bg-slate-500 rounded-r-full flex-1"></div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── LINEUPS ── #}
+  {% if match.lineups_data %}
+  {% set hl = match.lineups_data.home %}
+  {% set al = match.lineups_data.away %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold px-5 pt-5 pb-3">Lineups</p>
+    <div class="grid grid-cols-2 divide-x divide-slate-700/40">
+
+      {# Home #}
+      <div class="px-4 pb-5">
+        <div class="flex items-center gap-2 mb-3">
+          {% if match.team_home and match.team_home.flag_code %}
+          <img src="https://flagcdn.com/w20/{{ match.team_home.flag_code }}.png" class="h-4 w-auto rounded-sm">
+          {% endif %}
+          <span class="text-xs font-bold text-white truncate">{{ match.team_home.name }}</span>
+          {% if hl and hl.formation %}
+          <span class="ml-auto text-[10px] text-slate-500 font-mono shrink-0">{{ hl.formation }}</span>
+          {% endif %}
+        </div>
+        {% if hl and hl.lineup %}
+        <ul class="space-y-1.5">
+          {% for p in hl.lineup %}
+          <li class="flex items-center gap-2 text-xs">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+              {{ p.number or '?' }}
+            </span>
+            <span class="text-slate-200 truncate">{{ p.name }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if hl.bench %}
+        <p class="text-[10px] uppercase tracking-widest text-slate-600 mt-3 mb-1.5">Bench</p>
+        <ul class="space-y-1">
+          {% for p in hl.bench %}
+          <li class="text-[11px] text-slate-500 truncate">{{ p.number or '?' }}. {{ p.name }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% endif %}
+      </div>
+
+      {# Away #}
+      <div class="px-4 pb-5">
+        <div class="flex items-center gap-2 mb-3">
+          {% if match.team_away and match.team_away.flag_code %}
+          <img src="https://flagcdn.com/w20/{{ match.team_away.flag_code }}.png" class="h-4 w-auto rounded-sm">
+          {% endif %}
+          <span class="text-xs font-bold text-white truncate">{{ match.team_away.name }}</span>
+          {% if al and al.formation %}
+          <span class="ml-auto text-[10px] text-slate-500 font-mono shrink-0">{{ al.formation }}</span>
+          {% endif %}
+        </div>
+        {% if al and al.lineup %}
+        <ul class="space-y-1.5">
+          {% for p in al.lineup %}
+          <li class="flex items-center gap-2 text-xs">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+              {{ p.number or '?' }}
+            </span>
+            <span class="text-slate-200 truncate">{{ p.name }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if al.bench %}
+        <p class="text-[10px] uppercase tracking-widest text-slate-600 mt-3 mb-1.5">Bench</p>
+        <ul class="space-y-1">
+          {% for p in al.bench %}
+          <li class="text-[11px] text-slate-500 truncate">{{ p.number or '?' }}. {{ p.name }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── BOOKINGS & SUBS ── #}
+  {% if match.events_data and (match.events_data.bookings or match.events_data.substitutions) %}
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold px-5 pt-5 pb-3">Cards &amp; Subs</p>
+    <div class="divide-y divide-slate-700/40">
+      {% for b in (match.events_data.bookings or []) %}
+      {% set is_home = (b.team_id == match.team_home_id) %}
+      <div class="flex items-center gap-3 px-5 py-2.5 {% if not is_home %}flex-row-reverse{% endif %}">
+        <span class="shrink-0 text-[11px] text-slate-500 tabular-nums w-9 text-center">{{ b.minute }}'</span>
+        <span class="text-base shrink-0">{% if b.card == 'YELLOW' %}🟨{% elif b.card == 'RED' %}🟥{% else %}📋{% endif %}</span>
+        <span class="text-sm text-slate-200 flex-1 {% if not is_home %}text-right{% endif %}">{{ b.player }}</span>
+      </div>
+      {% endfor %}
+      {% for s in (match.events_data.substitutions or []) %}
+      {% set is_home = (s.team_id == match.team_home_id) %}
+      <div class="flex items-center gap-3 px-5 py-2.5 {% if not is_home %}flex-row-reverse{% endif %}">
+        <span class="shrink-0 text-[11px] text-slate-500 tabular-nums w-9 text-center">{{ s.minute }}'</span>
+        <span class="text-base shrink-0">🔄</span>
+        <div class="flex-1 {% if not is_home %}text-right{% endif %}">
+          <span class="text-sm text-green-400">↑ {{ s.player_in }}</span>
+          <span class="text-sm text-slate-500 mx-1">/</span>
+          <span class="text-sm text-red-400">↓ {{ s.player_out }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── UPCOMING: placeholder ── #}
+  {% if not is_live and not is_done and not match.lineups_data %}
   <div class="glass border border-slate-700/50 rounded-2xl flex flex-col items-center justify-center
               text-center py-16 px-6 min-h-[220px]">
     <span class="text-5xl mb-4">⏰</span>
     <p class="text-slate-200 font-bold text-lg">Stats available closer to kickoff</p>
-    <p class="text-slate-500 text-sm mt-1.5">Head-to-head records, form guide, and lineups coming soon</p>
+    <p class="text-slate-500 text-sm mt-1.5">Lineups, form guide, and live stats will appear here</p>
   </div>
+  {% endif %}
+
 </div>
 
 
@@ -739,7 +990,7 @@
 {# ══════════════════════════════════════════════════════════════════════════════
    MOBILE: Fixed confirm button (sm and below, upcoming matches only)
    ══════════════════════════════════════════════════════════════════════════════ #}
-{% if not is_done %}
+{% if can_predict %}
 <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-6"
      style="background:linear-gradient(to top,rgba(15,23,42,1) 55%,transparent);
             padding-bottom:max(16px,env(safe-area-inset-bottom))">

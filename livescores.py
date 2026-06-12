@@ -14,16 +14,101 @@ async def fetch_match_from_api(fd_match_id: int, api_key: str) -> dict:
         return resp.json()
 
 
+def _team_data(raw: dict) -> dict:
+    """Extract lineup/bench/formation/coach from a homeTeam or awayTeam object."""
+    return {
+        "formation": raw.get("formation"),
+        "coach": (raw.get("coach") or {}).get("name"),
+        "lineup": [
+            {
+                "name": p.get("name"),
+                "position": p.get("position"),
+                "number": p.get("shirtNumber"),
+            }
+            for p in (raw.get("lineup") or [])
+        ],
+        "bench": [
+            {
+                "name": p.get("name"),
+                "position": p.get("position"),
+                "number": p.get("shirtNumber"),
+            }
+            for p in (raw.get("bench") or [])
+        ],
+    }
+
+
 def parse_api_response(data: dict) -> dict:
     status = data.get("status", "")
     score = data.get("score", {}) or {}
     full_time = score.get("fullTime", {}) or {}
     minute = data.get("minute")
+
+    home_raw = data.get("homeTeam") or {}
+    away_raw = data.get("awayTeam") or {}
+    home_id = home_raw.get("id")
+    away_id = away_raw.get("id")
+
+    # Goals
+    goals = [
+        {
+            "minute": g.get("minute"),
+            "injury_time": g.get("injuryTime"),
+            "type": g.get("type"),          # REGULAR / PENALTY / OWN_GOAL
+            "team_id": (g.get("team") or {}).get("id"),
+            "scorer": (g.get("scorer") or {}).get("name"),
+            "assist": (g.get("assist") or {}).get("name"),
+            "score_home": (g.get("score") or {}).get("home"),
+            "score_away": (g.get("score") or {}).get("away"),
+        }
+        for g in (data.get("goals") or [])
+    ]
+
+    # Lineups
+    home_lineup = _team_data(home_raw)
+    away_lineup = _team_data(away_raw)
+    lineups = {"home": home_lineup, "away": away_lineup}
+    has_lineups = bool(home_lineup["lineup"] or away_lineup["lineup"])
+
+    # Team statistics
+    home_stats = home_raw.get("statistics") or {}
+    away_stats = away_raw.get("statistics") or {}
+    stats = {"home": home_stats, "away": away_stats}
+    has_stats = bool(home_stats or away_stats)
+
+    # Bookings + substitutions
+    bookings = [
+        {
+            "minute": b.get("minute"),
+            "team_id": (b.get("team") or {}).get("id"),
+            "player": (b.get("player") or {}).get("name"),
+            "card": b.get("card"),          # YELLOW / RED
+        }
+        for b in (data.get("bookings") or [])
+    ]
+    substitutions = [
+        {
+            "minute": s.get("minute"),
+            "team_id": (s.get("team") or {}).get("id"),
+            "player_out": (s.get("playerOut") or {}).get("name"),
+            "player_in": (s.get("playerIn") or {}).get("name"),
+        }
+        for s in (data.get("substitutions") or [])
+    ]
+    events = {"bookings": bookings, "substitutions": substitutions}
+    has_events = bool(bookings or substitutions)
+
     return {
         "status": status,
         "score_home": full_time.get("home"),
         "score_away": full_time.get("away"),
         "minute": minute,
+        "home_id": home_id,
+        "away_id": away_id,
+        "goals": goals or None,
+        "lineups": lineups if has_lineups else None,
+        "stats": stats if has_stats else None,
+        "events": events if has_events else None,
     }
 
 
@@ -41,6 +126,16 @@ async def refresh_single_match(db, match_id: int, fd_match_id: int, api_key: str
         match.score_away = parsed["score_away"]
     match.live_status = parsed["status"]
     match.live_minute = parsed["minute"]
+
+    if parsed["goals"] is not None:
+        match.goals_data = parsed["goals"]
+    if parsed["lineups"] is not None:
+        match.lineups_data = parsed["lineups"]
+    if parsed["stats"] is not None:
+        match.stats_data = parsed["stats"]
+    if parsed["events"] is not None:
+        match.events_data = parsed["events"]
+
     db.commit()
     return parsed
 

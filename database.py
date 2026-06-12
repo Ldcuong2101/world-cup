@@ -31,6 +31,10 @@ def init_db():
             "ALTER TABLE matches ADD COLUMN fd_match_id INTEGER",
             "ALTER TABLE matches ADD COLUMN live_status TEXT",
             "ALTER TABLE matches ADD COLUMN live_minute INTEGER",
+            "ALTER TABLE matches ADD COLUMN goals_data TEXT",
+            "ALTER TABLE matches ADD COLUMN lineups_data TEXT",
+            "ALTER TABLE matches ADD COLUMN stats_data TEXT",
+            "ALTER TABLE matches ADD COLUMN events_data TEXT",
         ]:
             try:
                 conn.execute(text(stmt))

@@ -74,6 +74,12 @@ class Match(Base):
     live_status = Column(String, nullable=True)    # IN_PLAY / PAUSED / EXTRA_TIME / FINISHED
     live_minute = Column(Integer, nullable=True)   # current minute when IN_PLAY
 
+    # Rich match data (fetched from API, stored as JSON)
+    goals_data   = Column(JSON, nullable=True)  # [{minute, type, team_id, scorer, assist, score_home, score_away}]
+    lineups_data = Column(JSON, nullable=True)  # {home: {formation, coach, lineup, bench}, away: {...}}
+    stats_data   = Column(JSON, nullable=True)  # {home: {possession, shots, ...}, away: {...}}
+    events_data  = Column(JSON, nullable=True)  # {bookings: [...], substitutions: [...]}
+
     # Post-match media
     highlight_url = Column(String, nullable=True)
     match_summary = Column(String, nullable=True)
