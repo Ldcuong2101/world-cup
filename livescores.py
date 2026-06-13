@@ -103,6 +103,8 @@ def parse_api_response(data: dict) -> dict:
         "score_home": full_time.get("home"),
         "score_away": full_time.get("away"),
         "minute": minute,
+        "score_winner": score.get("winner"),    # "HOME_TEAM" / "AWAY_TEAM" / "DRAW" / None
+        "score_duration": score.get("duration"), # "REGULAR" / "EXTRA_TIME" / "PENALTY_SHOOTOUT"
         "home_id": home_id,
         "away_id": away_id,
         "goals": goals or None,
@@ -126,6 +128,16 @@ async def refresh_single_match(db, match_id: int, fd_match_id: int, api_key: str
         match.score_away = parsed["score_away"]
     match.live_status = parsed["status"]
     match.live_minute = parsed["minute"]
+
+    # Auto-set winner when API confirms the match is over.
+    # winner_id drives is_done in templates; scoring still requires admin confirmation.
+    if parsed["status"] == "FINISHED" and match.winner_id is None:
+        api_winner = parsed["score_winner"]
+        if api_winner == "HOME_TEAM":
+            match.winner_id = match.team_home_id
+        elif api_winner == "AWAY_TEAM":
+            match.winner_id = match.team_away_id
+        # "DRAW" or None: leave winner_id as None (group-stage draw)
 
     if parsed["goals"] is not None:
         match.goals_data = parsed["goals"]
