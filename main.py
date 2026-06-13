@@ -359,11 +359,29 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
         )
         correct_counts[u.id] = correct
 
+    # Picks grid: finished matches × users
+    finished_matches = (
+        db.query(Match)
+        .filter(Match.winner_id.isnot(None))
+        .order_by(Match.match_date)
+        .all()
+    )
+    finished_ids = [m.id for m in finished_matches]
+    all_preds = (
+        db.query(Prediction).filter(Prediction.match_id.in_(finished_ids)).all()
+        if finished_ids else []
+    )
+    pick_grid = {}   # {user_id: {match_id: Prediction}}
+    for p in all_preds:
+        pick_grid.setdefault(p.user_id, {})[p.match_id] = p
+
     return templates.TemplateResponse("ranking.html", {
         "request": request,
         "user": user,
         "users": users,
         "correct_counts": correct_counts,
+        "finished_matches": finished_matches,
+        "pick_grid": pick_grid,
     })
 
 

@@ -177,6 +177,172 @@
 </div>
 
 
+{# ── Picks grid ─────────────────────────────────────────────────────────── #}
+{% if finished_matches %}
+{% set stage_short = {'group':'GS','r32':'R32','r16':'R16','r8':'QF','semi':'SF','r4':'3rd','final':'F'} %}
+<div class="mt-10">
+  <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Picks Grid</h2>
+
+  <div class="glass border border-slate-700/50 rounded-2xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="border-collapse" style="min-width:max-content">
+
+        {# ── Column headers ── #}
+        <thead>
+          <tr class="border-b border-slate-700/50">
+
+            {# Sticky name column #}
+            <th class="sticky left-0 z-10 bg-slate-900 text-left px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap border-r border-slate-700/50"
+                style="min-width:140px">
+              Player
+            </th>
+
+            {# One column per finished match #}
+            {% for m in finished_matches %}
+            <th class="px-1 py-2 text-center border-r border-slate-800/60 last:border-r-0"
+                style="width:52px;min-width:52px">
+
+              {# Stage + match num #}
+              <div class="text-[9px] font-bold text-slate-600 uppercase leading-none mb-1">
+                {{ stage_short.get(m.stage, m.stage) }}{% if m.match_num %}&nbsp;#{{ m.match_num }}{% endif %}
+              </div>
+
+              {# Home flag #}
+              <div class="flex flex-col items-center gap-0.5">
+                {% if m.team_home and m.team_home.flag_code %}
+                <img src="https://flagcdn.com/w40/{{ m.team_home.flag_code }}.png"
+                     alt="{{ m.team_home.name }}"
+                     title="{{ m.team_home.name }}"
+                     class="object-cover rounded-sm" style="width:22px;height:15px">
+                {% else %}
+                <span class="text-[9px] text-slate-600">?</span>
+                {% endif %}
+
+                <span class="text-[8px] text-slate-700 leading-none">vs</span>
+
+                {# Away flag #}
+                {% if m.team_away and m.team_away.flag_code %}
+                <img src="https://flagcdn.com/w40/{{ m.team_away.flag_code }}.png"
+                     alt="{{ m.team_away.name }}"
+                     title="{{ m.team_away.name }}"
+                     class="object-cover rounded-sm" style="width:22px;height:15px">
+                {% else %}
+                <span class="text-[9px] text-slate-600">?</span>
+                {% endif %}
+              </div>
+
+              {# Winner indicator #}
+              <div class="mt-1 flex justify-center">
+                {% if m.winner_id == m.team_home_id and m.team_home and m.team_home.flag_code %}
+                <img src="https://flagcdn.com/w40/{{ m.team_home.flag_code }}.png"
+                     title="Winner: {{ m.team_home.name }}"
+                     class="object-cover rounded-sm ring-1 ring-amber-400/60" style="width:18px;height:12px">
+                {% elif m.winner_id == m.team_away_id and m.team_away and m.team_away.flag_code %}
+                <img src="https://flagcdn.com/w40/{{ m.team_away.flag_code }}.png"
+                     title="Winner: {{ m.team_away.name }}"
+                     class="object-cover rounded-sm ring-1 ring-amber-400/60" style="width:18px;height:12px">
+                {% endif %}
+              </div>
+
+            </th>
+            {% endfor %}
+
+          </tr>
+        </thead>
+
+        {# ── User rows ── #}
+        <tbody class="divide-y divide-slate-800/60">
+          {% for u in users %}
+          {% set user_picks = pick_grid.get(u.id, {}) %}
+          <tr class="{% if u.id == user.id %}bg-amber-500/5{% else %}hover:bg-slate-800/40{% endif %} transition-colors">
+
+            {# Sticky name cell #}
+            <td class="sticky left-0 z-10 px-4 py-2.5 border-r border-slate-700/50 whitespace-nowrap"
+                style="background: {% if u.id == user.id %}rgba(245,158,11,0.06){% else %}rgb(15,23,42){% endif %}">
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-slate-600 w-5 text-right shrink-0">{{ loop.index }}</span>
+                <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0
+                            {% if u.id == user.id %}bg-amber-500/20 text-amber-400{% else %}bg-slate-700 text-slate-400{% endif %}">
+                  {{ u.username[0].upper() }}
+                </div>
+                <span class="text-sm font-semibold truncate max-w-[90px]
+                             {% if u.id == user.id %}text-amber-400{% else %}text-white{% endif %}">
+                  {{ u.username }}
+                </span>
+                <span class="text-xs font-bold {% if u.total_score > 0 %}text-amber-400{% elif u.total_score < 0 %}text-red-400{% else %}text-slate-500{% endif %} ml-auto pl-2">
+                  {{ u.total_score }}
+                </span>
+              </div>
+            </td>
+
+            {# One pick cell per match #}
+            {% for m in finished_matches %}
+            {% set pred = user_picks.get(m.id) %}
+            <td class="px-1 py-1.5 text-center border-r border-slate-800/60 last:border-r-0">
+
+              {% if pred %}
+                {% set picked_home = pred.predicted_winner_id == m.team_home_id %}
+                {% set correct = pred.points_earned is not none and pred.points_earned > 0 %}
+                {% set wrong   = pred.points_earned is not none and pred.points_earned <= 0 %}
+                {% set pending = pred.points_earned is none %}
+                {% set picked_team = m.team_home if picked_home else m.team_away %}
+
+                <div class="flex flex-col items-center gap-0.5 rounded-md px-0.5 py-0.5 mx-auto"
+                     style="width:38px;
+                       {% if correct %}background:rgba(34,197,94,0.15){% elif wrong %}background:rgba(239,68,68,0.12){% else %}background:rgba(100,116,139,0.1){% endif %}">
+
+                  {% if picked_team and picked_team.flag_code %}
+                  <img src="https://flagcdn.com/w40/{{ picked_team.flag_code }}.png"
+                       alt="{{ picked_team.name }}"
+                       title="{{ 'Correct' if correct else ('Wrong' if wrong else 'Pending') }}: {{ picked_team.name }}{% if pred.use_star %} ⭐{% endif %}"
+                       class="object-cover rounded-sm {% if correct %}ring-1 ring-green-500/60{% elif wrong %}ring-1 ring-red-500/40{% endif %}"
+                       style="width:22px;height:15px">
+                  {% endif %}
+
+                  <span class="text-[9px] font-bold leading-none
+                    {% if correct %}text-green-400{% elif wrong %}text-red-400{% else %}text-slate-500{% endif %}">
+                    {% if correct %}+{{ pred.points_earned }}
+                    {% elif wrong %}{{ pred.points_earned }}
+                    {% else %}?{% endif %}
+                  </span>
+
+                </div>
+
+              {% else %}
+                <span class="text-slate-700 text-xs">–</span>
+              {% endif %}
+
+            </td>
+            {% endfor %}
+
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+
+    {# Legend #}
+    <div class="border-t border-slate-700/40 px-5 py-3 flex items-center gap-5 flex-wrap">
+      <span class="text-[10px] text-slate-600 font-semibold uppercase tracking-wider">Legend</span>
+      <span class="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <span class="inline-block w-4 h-3 rounded-sm bg-green-500/20 ring-1 ring-green-500/40"></span> Correct
+      </span>
+      <span class="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <span class="inline-block w-4 h-3 rounded-sm bg-red-500/15 ring-1 ring-red-500/30"></span> Wrong
+      </span>
+      <span class="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <span class="text-slate-600 text-base leading-none">–</span> No pick
+      </span>
+      <span class="flex items-center gap-1.5 text-[11px] text-slate-400 ml-2">
+        <span class="inline-block w-3 h-2 rounded-sm ring-1 ring-amber-400/60"></span> Match winner
+      </span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
 {# ── Scoring reference ───────────────────────────────────────────────────── #}
 <div class="mt-8 glass border border-slate-700/50 rounded-2xl p-5">
   <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Scoring Guide</h3>
