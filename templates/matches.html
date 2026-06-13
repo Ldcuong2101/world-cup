@@ -16,7 +16,7 @@
    ══════════════════════════════════════════════════════════════════════════════ #}
 {% macro match_card(match, user_preds, STAGE_LABELS) %}
 {% set pred = user_preds.get(match.id) %}
-{% set is_done = match.winner_id is not none %}
+{% set is_done = match.result is not none or match.winner_id is not none %}
 {% set can_predict = match.match_date > now %}
 
 <div class="glass border border-slate-700/50 border-l-4 bl-{{ match.stage }} rounded-2xl overflow-hidden

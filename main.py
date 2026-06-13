@@ -362,7 +362,7 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
     # Picks grid: finished matches × users
     finished_matches = (
         db.query(Match)
-        .filter(Match.winner_id.isnot(None))
+        .filter(Match.result != None)  # noqa: E711 — SQLAlchemy requires != None
         .order_by(Match.match_date)
         .all()
     )

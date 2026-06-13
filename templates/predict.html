@@ -4,7 +4,7 @@
 {% block content %}
 
 {# ── Derived values ───────────────────────────────────────────────────────── #}
-{% set is_done = match.winner_id is not none %}
+{% set is_done = match.result is not none or match.winner_id is not none %}
 {% set stage_pts = {'group':10,'r32':15,'r16':20,'r8':40,'semi':160,'r4':80,'final':320} %}
 {% set pts = stage_pts.get(match.stage, 10) %}
 {% set home_is_underdog = match.home_strength_rating < 0.45 %}
