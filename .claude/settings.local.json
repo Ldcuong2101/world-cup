@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "WebFetch(domain:thethao247.vn)",
+      "Bash(curl -s \"https://thethao247.vn/world-cup\")",
+      "Read(//tmp/**)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(sqlite3 *)",
+      "Bash(curl -s https://docs.football-data.org/general/v4/match.html)",
+      "Bash(env)",
+      "Bash(curl -s https://api.football-data.org/v4/competitions/WC/matches?limit=1)",
+      "WebFetch(domain:docs.football-data.org)",
+      "WebFetch(domain:www.football-data.org)"
+    ]
+  }
+}

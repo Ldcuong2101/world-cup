@@ -313,11 +313,12 @@
        {# ── Column header ───────────────────────────────────────────────── #}
        <div class="grid items-center px-6 py-3 border-b border-slate-700
                    text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
-            style="grid-template-columns: 22px minmax(0,1fr) 28px 28px 28px 28px 36px">
+            style="grid-template-columns: 22px minmax(0,1fr) 28px 28px 28px 28px 28px 36px">
          <span>#</span>
          <span>Team</span>
          <span class="text-center">MP</span>
          <span class="text-center">W</span>
+         <span class="text-center">D</span>
          <span class="text-center">L</span>
          <span class="text-center">GF</span>
          <span class="text-center" style="color: rgb(251 191 36 / 0.8)">Pts</span>
@@ -334,8 +335,8 @@
        <div class="grid items-center px-6 py-4 transition-colors
                    hover:bg-slate-700/40 cursor-default
                    {% if loop.index <= 2 %}border-l-2 border-green-500{% else %}border-l-2 border-transparent{% endif %}"
-            style="grid-template-columns: 22px minmax(0,1fr) 28px 28px 28px 28px 36px">
-   
+            style="grid-template-columns: 22px minmax(0,1fr) 28px 28px 28px 28px 28px 36px">
+
          {# Rank #}
          <span class="text-sm font-bold
                       {% if loop.index == 1 %}text-amber-400
@@ -358,6 +359,7 @@
          {# Stats #}
          <span class="text-center text-sm text-slate-400">{{ row.mp }}</span>
          <span class="text-center text-sm text-slate-400">{{ row.w }}</span>
+         <span class="text-center text-sm text-slate-400">{{ row.get('d', 0) }}</span>
          <span class="text-center text-sm text-slate-400">{{ row.l }}</span>
          <span class="text-center text-sm text-slate-400">{{ row.gf }}</span>
          <span class="text-center text-base font-bold text-amber-400">{{ row.pts }}</span>

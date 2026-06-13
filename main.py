@@ -46,31 +46,38 @@ def _compute_group_standings(db):
     for team in all_teams:
         if team.group:
             standings[team.group][team.id] = {
-                "team": team, "mp": 0, "w": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
+                "team": team, "mp": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
             }
     for m in db.query(Match).order_by(Match.match_date).all():
-        if m.stage == "group" and m.winner_id is not None:
-            g = m.team_home.group
-            for tid in [m.team_home_id, m.team_away_id]:
-                if tid not in standings[g]:
-                    standings[g][tid] = {
-                        "team": (m.team_home if tid == m.team_home_id else m.team_away),
-                        "mp": 0, "w": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
-                    }
-            standings[g][m.team_home_id]["mp"] += 1
-            standings[g][m.team_away_id]["mp"] += 1
-            standings[g][m.team_home_id]["gf"] += m.score_home or 0
-            standings[g][m.team_home_id]["ga"] += m.score_away or 0
-            standings[g][m.team_away_id]["gf"] += m.score_away or 0
-            standings[g][m.team_away_id]["ga"] += m.score_home or 0
-            if m.winner_id == m.team_home_id:
-                standings[g][m.team_home_id]["w"] += 1
-                standings[g][m.team_home_id]["pts"] += 3
-                standings[g][m.team_away_id]["l"] += 1
-            else:
-                standings[g][m.team_away_id]["w"] += 1
-                standings[g][m.team_away_id]["pts"] += 3
-                standings[g][m.team_home_id]["l"] += 1
+        if m.stage != "group" or m.result is None:
+            continue
+        g = m.team_home.group
+        for tid in [m.team_home_id, m.team_away_id]:
+            if tid not in standings[g]:
+                standings[g][tid] = {
+                    "team": (m.team_home if tid == m.team_home_id else m.team_away),
+                    "mp": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0,
+                }
+        standings[g][m.team_home_id]["mp"] += 1
+        standings[g][m.team_away_id]["mp"] += 1
+        standings[g][m.team_home_id]["gf"] += m.score_home or 0
+        standings[g][m.team_home_id]["ga"] += m.score_away or 0
+        standings[g][m.team_away_id]["gf"] += m.score_away or 0
+        standings[g][m.team_away_id]["ga"] += m.score_home or 0
+        if m.winner_id == m.team_home_id:
+            standings[g][m.team_home_id]["w"] += 1
+            standings[g][m.team_home_id]["pts"] += 3
+            standings[g][m.team_away_id]["l"] += 1
+        elif m.winner_id == m.team_away_id:
+            standings[g][m.team_away_id]["w"] += 1
+            standings[g][m.team_away_id]["pts"] += 3
+            standings[g][m.team_home_id]["l"] += 1
+        else:
+            # Draw — 1 point each
+            standings[g][m.team_home_id]["d"] += 1
+            standings[g][m.team_away_id]["d"] += 1
+            standings[g][m.team_home_id]["pts"] += 1
+            standings[g][m.team_away_id]["pts"] += 1
     groups_sorted = {}
     for grp, teams_dict in sorted(standings.items()):
         rows = sorted(teams_dict.values(), key=lambda r: (-r["pts"], -(r["gf"] - r["ga"]), -r["gf"]))
