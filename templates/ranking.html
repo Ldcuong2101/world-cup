@@ -278,6 +278,7 @@
             {# One pick cell per match #}
             {% for m in finished_matches %}
             {% set pred = user_picks.get(m.id) %}
+            {% set no_pred_pts = penalty_grid.get(u.id, {}).get(m.id) %}
             <td class="px-1 py-1.5 text-center border-r border-slate-800/60 last:border-r-0">
 
               {% if pred %}
@@ -308,6 +309,13 @@
 
                 </div>
 
+              {% elif no_pred_pts is not none %}
+                <div class="flex flex-col items-center gap-0.5 rounded-md px-0.5 py-0.5 mx-auto"
+                     style="width:38px;background:rgba(239,68,68,0.08)">
+                  <span class="text-[10px] leading-none">⛔</span>
+                  <span class="text-[9px] font-bold leading-none text-red-400">{{ no_pred_pts }}</span>
+                </div>
+
               {% else %}
                 <span class="text-slate-700 text-xs">–</span>
               {% endif %}
@@ -332,7 +340,7 @@
         <span class="inline-block w-4 h-3 rounded-sm bg-red-500/15 ring-1 ring-red-500/30"></span> Wrong
       </span>
       <span class="flex items-center gap-1.5 text-[11px] text-slate-400">
-        <span class="text-slate-600 text-base leading-none">–</span> No pick
+        <span class="text-[10px]">⛔</span> No prediction (penalty)
       </span>
       <span class="flex items-center gap-1.5 text-[11px] text-slate-400 ml-2">
         <span class="inline-block w-3 h-2 rounded-sm ring-1 ring-amber-400/60"></span> Match winner

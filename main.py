@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from database import get_db, init_db, SessionLocal
-from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet
+from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet, MatchPenalty
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
@@ -369,6 +369,14 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
     for p in all_preds:
         pick_grid.setdefault(p.user_id, {})[p.match_id] = p
 
+    all_penalties = (
+        db.query(MatchPenalty).filter(MatchPenalty.match_id.in_(finished_ids)).all()
+        if finished_ids else []
+    )
+    penalty_grid = {}  # {user_id: {match_id: points_earned}}
+    for pen in all_penalties:
+        penalty_grid.setdefault(pen.user_id, {})[pen.match_id] = pen.points_earned
+
     return templates.TemplateResponse("ranking.html", {
         "request": request,
         "user": user,
@@ -376,6 +384,7 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
         "correct_counts": correct_counts,
         "finished_matches": finished_matches,
         "pick_grid": pick_grid,
+        "penalty_grid": penalty_grid,
     })
 
 
