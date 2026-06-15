@@ -1,6 +1,3 @@
-import asyncio
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -17,22 +14,12 @@ from auth import (
     get_current_user, SESSION_COOKIE,
 )
 from scoring import compute_match_predictions, compute_special_event, compute_champion_event
-from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, FOOTBALL_DATA_API_KEY, LIVE_EARLY_MINUTES
+from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, LIVE_EARLY_MINUTES
 from signup import router as signup_router
 from crawler import crawl_news_list, crawl_match_article
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    if FOOTBALL_DATA_API_KEY:
-        from livescores import livescore_poll_loop
-        asyncio.create_task(livescore_poll_loop(SessionLocal, FOOTBALL_DATA_API_KEY))
-    else:
-        print("[livescores] FOOTBALL_DATA_API_KEY not set — poller disabled")
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.include_router(signup_router)
 templates = Jinja2Templates(directory="templates")
@@ -767,68 +754,6 @@ async def admin_set_highlight(
 
     db.commit()
     return redirect("/admin", "Highlight info saved!", "success")
-
-
-@app.post("/admin/match/{match_id}/fd-id")
-async def admin_set_fd_id(
-    match_id: int,
-    request: Request,
-    fd_match_id: str = Form(default=""),
-    db: Session = Depends(get_db),
-):
-    user = get_current_user(request, db)
-    if not user or not user.is_admin:
-        raise HTTPException(status_code=403)
-    match = db.query(Match).filter(Match.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404)
-    try:
-        match.fd_match_id = int(fd_match_id.strip()) if fd_match_id.strip() else None
-    except ValueError:
-        return redirect("/admin", "Invalid football-data.org match ID", "error")
-    db.commit()
-    return redirect("/admin", "football-data.org match ID saved!", "success")
-
-
-@app.get("/admin/match/{match_id}/fetch-score")
-async def admin_fetch_score(match_id: int, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user or not user.is_admin:
-        raise HTTPException(status_code=403)
-
-    if not FOOTBALL_DATA_API_KEY:
-        return JSONResponse({"error": "FOOTBALL_DATA_API_KEY not set in .env"})
-
-    match = db.query(Match).filter(Match.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404)
-
-    if not match.fd_match_id:
-        return JSONResponse({"error": "No football-data.org match ID set for this match — add it in the Live Score section."})
-
-    from livescores import fetch_match_from_api, parse_api_response
-    import httpx
-    try:
-        data = await fetch_match_from_api(match.fd_match_id, FOOTBALL_DATA_API_KEY)
-        parsed = parse_api_response(data)
-
-        if parsed["score_home"] is not None:
-            match.score_home = parsed["score_home"]
-            match.score_away = parsed["score_away"]
-        match.live_status = parsed["status"]
-        match.live_minute = parsed["minute"]
-        db.commit()
-
-        return JSONResponse({
-            "score_home": parsed["score_home"],
-            "score_away": parsed["score_away"],
-            "status": parsed["status"],
-            "minute": parsed["minute"],
-        })
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse({"error": f"API error {exc.response.status_code}: {exc.response.text[:200]}"})
-    except Exception as exc:
-        return JSONResponse({"error": str(exc)})
 
 
 @app.post("/admin/special/{event_id}/answer")

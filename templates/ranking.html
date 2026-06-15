@@ -346,16 +346,28 @@
 {# ── Scoring reference ───────────────────────────────────────────────────── #}
 <div class="mt-8 glass border border-slate-700/50 rounded-2xl p-5">
   <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Scoring Guide</h3>
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
     {% for label, pts, color in [
         ('Group Stage','10 pts','text-slate-300'),
+        ('Round of 32','15 pts','text-slate-300'),
         ('Round of 16','20 pts','text-blue-400'),
-        ('Quarter-Final','40 pts','text-violet-400'),
-        ('Semi-Final','160 pts','text-orange-400'),
-        ('3rd Place','80 pts','text-emerald-400'),
-        ('Final','320 pts','text-amber-400'),
+        ('Quarter-Final','30 pts','text-violet-400'),
+        ('3rd Place','40 pts','text-emerald-400'),
+        ('Semi-Final','50 pts','text-orange-400'),
+        ('Final','70 pts','text-amber-400'),
         ('Upset bonus','×1.5','text-green-400'),
-        ('Wrong guess','−5 pts','text-red-400'),
+    ] %}
+    <div class="bg-slate-800/50 rounded-xl px-3 py-2.5 flex items-center justify-between">
+      <span class="text-xs text-slate-400">{{ label }}</span>
+      <span class="text-xs font-bold {{ color }}">{{ pts }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-700/40">
+    {% for label, pts, color in [
+        ('⚠️ Wrong prediction','−same pts','text-red-400'),
+        ('⛔ No prediction','−half pts','text-red-400'),
+        ('⭐ Star pick','×2 reward &amp; penalty','text-yellow-400'),
     ] %}
     <div class="bg-slate-800/50 rounded-xl px-3 py-2.5 flex items-center justify-between">
       <span class="text-xs text-slate-400">{{ label }}</span>

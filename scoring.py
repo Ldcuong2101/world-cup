@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, ChampionEvent, ChampionBet
+from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, ChampionEvent, ChampionBet, MatchPenalty
 from config import STAGE_POINTS, STAR_MULTIPLIER
 
 
@@ -26,8 +26,10 @@ def compute_match_predictions(db: Session, match: Match) -> None:
     effective_winner = _get_effective_winner(match)
     base_points = STAGE_POINTS.get(match.stage, 10)
     predictions = db.query(Prediction).filter(Prediction.match_id == match.id).all()
+    predicted_user_ids = set()
 
     for pred in predictions:
+        predicted_user_ids.add(pred.user_id)
         star = bool(pred.use_star)
         multiplier = STAR_MULTIPLIER if star else 1
 
@@ -44,6 +46,27 @@ def compute_match_predictions(db: Session, match: Match) -> None:
         user = db.query(User).filter(User.id == pred.user_id).first()
         if user:
             user.total_score = (user.total_score or 0) - old_points + earned
+
+    # Apply -half penalty to non-admin users who didn't submit a prediction
+    no_pred_penalty = -(base_points // 2)
+    all_users = db.query(User).filter(User.is_admin == False).all()
+    for user in all_users:
+        existing = db.query(MatchPenalty).filter(
+            MatchPenalty.user_id == user.id,
+            MatchPenalty.match_id == match.id,
+        ).first()
+        if user.id in predicted_user_ids:
+            # Has a real prediction — remove any stale no-prediction penalty
+            if existing:
+                user.total_score = (user.total_score or 0) - existing.points_earned
+                db.delete(existing)
+        else:
+            old_pts = existing.points_earned if existing else 0
+            if existing:
+                existing.points_earned = no_pred_penalty
+            else:
+                db.add(MatchPenalty(user_id=user.id, match_id=match.id, points_earned=no_pred_penalty))
+            user.total_score = (user.total_score or 0) - old_pts + no_pred_penalty
 
     db.commit()
 

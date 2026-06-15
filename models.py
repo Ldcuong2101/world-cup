@@ -205,3 +205,12 @@ class MatchArticle(Base):
     crawled_at   = Column(DateTime, nullable=False)
 
     match = relationship("Match", backref=sa_backref("article", uselist=False))
+
+
+class MatchPenalty(Base):
+    """Tracks the no-prediction penalty applied to users who skipped a match."""
+    __tablename__ = "match_penalties"
+    id       = Column(Integer, primary_key=True, index=True)
+    user_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    points_earned = Column(Integer, nullable=False)

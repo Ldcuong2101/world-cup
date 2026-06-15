@@ -5,7 +5,7 @@
 
 {# ── Derived values ───────────────────────────────────────────────────────── #}
 {% set is_done = match.result is not none or match.winner_id is not none %}
-{% set stage_pts = {'group':10,'r32':15,'r16':20,'r8':40,'semi':160,'r4':80,'final':320} %}
+{% set stage_pts = {'group':10,'r32':15,'r16':20,'r8':30,'r4':40,'semi':50,'final':70} %}
 {% set pts = stage_pts.get(match.stage, 10) %}
 {% set home_is_underdog = match.home_strength_rating < 0.45 %}
 {% set away_is_underdog = match.home_strength_rating > 0.55 %}
@@ -519,6 +519,10 @@
           <div class="flex items-center justify-between">
             <span class="text-slate-400">⚠️ Wrong prediction</span>
             <span class="font-bold text-red-400">−{{ pts }} pts</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">⛔ No prediction</span>
+            <span class="font-bold text-red-400">−{{ (pts // 2) }} pts</span>
           </div>
           <div x-show="(selected === homeId && {{ 'true' if home_is_underdog else 'false' }}) || (selected === awayId && {{ 'true' if away_is_underdog else 'false' }})"
                class="flex items-center justify-between pt-2 border-t border-slate-700/40">
