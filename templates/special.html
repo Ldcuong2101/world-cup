@@ -181,7 +181,7 @@
 </div>
 {% endif %}
 
-<div class="grid gap-6 md:grid-cols-2">
+<div class="grid gap-6">
 {% for event in events %}
 {% set user_ans = user_answers.get(event.id) %}
 {% set closed = event.deadline <= now %}
@@ -191,6 +191,7 @@
             {% if not closed and not resolved %}hover:border-slate-600/70 hover:shadow-xl hover:shadow-black/40{% endif %}"
      x-data="{
        selected: '{{ user_ans.answer|replace("'", "\\'") if user_ans else '' }}',
+       search: '',
        deadline: new Date('{{ event.deadline.strftime('%Y-%m-%dT%H:%M:%SZ') }}'),
        countdown: '',
        closed: {{ 'true' if closed else 'false' }},
@@ -274,17 +275,31 @@
     {% if not closed and not resolved %}
     {# Active: interactive form #}
     <form method="POST" action="/special/{{ event.id }}/answer">
-      <div class="grid grid-cols-2 gap-2.5 mb-5">
+      {% if user_ans %}
+      <div class="mb-3 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400">Đang chọn:</span>
+        <span class="text-[11px] font-bold text-amber-300">{{ user_ans.answer }}</span>
+      </div>
+      {% endif %}
+
+      <div class="relative mb-2.5">
+        <input type="text" x-model="search" placeholder="Tìm kiếm cầu thủ..." autocomplete="off"
+               class="w-full bg-slate-800/60 border border-slate-700/60 rounded-lg pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 transition-colors">
+        <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-xs">🔍</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto mb-4 pr-0.5
+                  [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full">
         {% for option in event.options %}
-        <label class="cursor-pointer">
+        <label class="cursor-pointer" x-show="!search || '{{ option|lower|replace("'", "\\'") }}'.includes(search.toLowerCase())">
           <input type="radio" name="answer" value="{{ option }}" class="sr-only"
                  x-model="selected"
                  {% if user_ans and user_ans.answer == option %}checked{% endif %} />
           <div :class="selected === '{{ option|replace("'", "\\'") }}'
-                    ? 'ring-2 ring-amber-400 bg-amber-500/10 border-amber-400/50'
-                    : 'border-slate-700/50 hover:border-slate-500 hover:bg-slate-700/30'"
-               class="border-2 rounded-xl px-3 py-3 text-center text-sm font-semibold text-white
-                      transition-all duration-150 min-h-[52px] flex items-center justify-center">
+                    ? 'border-amber-400/60 bg-amber-500/10 text-amber-100'
+                    : 'border-slate-700/50 hover:border-slate-500/70 hover:bg-slate-700/30 text-slate-300'"
+               class="border rounded-lg px-2 py-2 text-center text-[11px] font-semibold leading-tight
+                      transition-all duration-100 flex items-center justify-center min-h-[36px]">
             {{ option }}
           </div>
         </label>
@@ -303,22 +318,37 @@
 
     {% else %}
     {# Closed/resolved: read-only display #}
-    <div class="grid grid-cols-2 gap-2.5">
+    {% if user_ans %}
+    <div class="mb-3 border rounded-lg px-3 py-2 flex items-center justify-between
+      {% if resolved and user_ans.answer == event.correct_answer %}bg-green-500/10 border-green-500/30
+      {% elif resolved %}bg-red-500/10 border-red-500/30
+      {% else %}bg-amber-500/8 border-amber-500/20{% endif %}">
+      <span class="text-[11px] text-slate-400">Bạn đã chọn:</span>
+      <span class="text-[11px] font-bold
+        {% if resolved and user_ans.answer == event.correct_answer %}text-green-300
+        {% elif resolved %}text-red-300
+        {% else %}text-amber-300{% endif %}">
+        {{ user_ans.answer }}
+        {% if resolved and user_ans.answer == event.correct_answer %} ✅
+        {% elif resolved %} ❌
+        {% else %} ⏳{% endif %}
+      </span>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-0.5
+                [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full">
       {% for option in event.options %}
       {% set is_user_pick = user_ans and user_ans.answer == option %}
       {% set is_correct = resolved and option == event.correct_answer %}
-      <div class="rounded-xl px-3 py-3 text-center text-sm font-semibold min-h-[52px] flex flex-col items-center justify-center gap-1 border
+      <div class="rounded-lg px-2 py-2 text-center text-[11px] font-semibold min-h-[36px] flex flex-col items-center justify-center gap-0.5 border
         {% if is_user_pick and is_correct %}bg-green-500/10 border-green-500/40 text-green-300
         {% elif is_user_pick and resolved %}bg-red-500/10 border-red-500/40 text-red-300
         {% elif is_user_pick %}bg-amber-500/10 border-amber-500/40 text-amber-300
         {% elif is_correct %}bg-green-500/5 border-green-500/20 text-green-400
-        {% else %}bg-slate-800/40 border-slate-700/30 text-slate-500{% endif %}">
-        {{ option }}
-        {% if is_user_pick and is_correct %}<span class="text-[10px]">✅ Your pick</span>
-        {% elif is_user_pick and resolved %}<span class="text-[10px]">❌ Your pick</span>
-        {% elif is_user_pick %}<span class="text-[10px] text-amber-400">⏳ Your pick</span>
-        {% elif is_correct %}<span class="text-[10px] text-green-400">✓ Correct</span>
-        {% endif %}
+        {% else %}bg-slate-800/30 border-slate-700/20 text-slate-500{% endif %}">
+        <span class="leading-tight">{{ option }}</span>
+        {% if is_correct %}<span class="text-[9px] text-green-400">✓</span>{% endif %}
       </div>
       {% endfor %}
     </div>

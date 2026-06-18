@@ -184,6 +184,13 @@ class ChampionBet(Base):
     champion_event = relationship("ChampionEvent", back_populates="bets")
 
 
+class UserPeek(Base):
+    __tablename__ = "user_peeks"
+    id       = Column(Integer, primary_key=True, index=True)
+    user_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+
+
 class Article(Base):
     __tablename__ = "articles"
     id            = Column(Integer, primary_key=True, index=True)

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from database import get_db, init_db, SessionLocal
-from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet, MatchPenalty
+from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet, MatchPenalty, UserPeek
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
@@ -193,6 +193,12 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
 
     groups_sorted = _compute_group_standings(db)
 
+    peeked_ids = {
+        row.match_id
+        for row in db.query(UserPeek.match_id).filter(UserPeek.user_id == user.id).all()
+    }
+    peeks_remaining = max(0, 3 - len(peeked_ids))
+
     msg, cat = get_flash(request)
     resp = templates.TemplateResponse("matches.html", {
         "request": request,
@@ -206,10 +212,46 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
         "groups_sorted": groups_sorted,
         "STAGE_LABELS": STAGE_LABELS,
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
+        "peeked_ids": peeked_ids,
+        "peeks_remaining": peeks_remaining,
     })
     resp.delete_cookie("flash_msg")
     resp.delete_cookie("flash_cat")
     return resp
+
+
+# ─── Peek ────────────────────────────────────────────────────────────────────
+
+@app.post("/matches/{match_id}/peek", response_class=JSONResponse)
+async def peek_match_picks(match_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "auth"}, status_code=401)
+
+    existing = db.query(UserPeek).filter(
+        UserPeek.user_id == user.id, UserPeek.match_id == match_id
+    ).first()
+
+    if not existing:
+        used = db.query(UserPeek).filter(UserPeek.user_id == user.id).count()
+        if used >= 3:
+            return JSONResponse({"error": "no_peeks"})
+        db.add(UserPeek(user_id=user.id, match_id=match_id))
+        db.commit()
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    rows = (
+        db.query(Prediction, User)
+        .join(User, Prediction.user_id == User.id)
+        .filter(Prediction.match_id == match_id)
+        .all()
+    )
+    home_names = [u.username for p, u in rows if p.predicted_winner_id == match.team_home_id]
+    away_names = [u.username for p, u in rows if p.predicted_winner_id != match.team_home_id]
+    return JSONResponse({"ok": True, "home_names": home_names, "away_names": away_names})
 
 
 # ─── Predict ─────────────────────────────────────────────────────────────────
@@ -256,6 +298,12 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
     home_pick_pct = round(home_picks / total_picks * 100) if total_picks > 0 else 50
     away_pick_pct = 100 - home_pick_pct
 
+    already_peeked = db.query(UserPeek).filter(
+        UserPeek.user_id == user.id, UserPeek.match_id == match_id
+    ).first() is not None
+    peeks_used = db.query(UserPeek).filter(UserPeek.user_id == user.id).count()
+    peeks_remaining = max(0, 3 - peeks_used)
+
     return templates.TemplateResponse("predict.html", {
         "request": request,
         "user": user,
@@ -273,6 +321,8 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "group_rows": group_rows,
         "group_key": group_key,
         "is_live": is_live,
+        "already_peeked": already_peeked,
+        "peeks_remaining": peeks_remaining,
     })
 
 
