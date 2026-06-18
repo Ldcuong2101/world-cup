@@ -377,6 +377,32 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
     for pen in all_penalties:
         penalty_grid.setdefault(pen.user_id, {})[pen.match_id] = pen.points_earned
 
+    # Compute achievement badges per user
+    match_date_lookup = {m.id: m.match_date for m in finished_matches}
+    badges = {}
+    for u in users:
+        correct = correct_counts[u.id]
+        scored_preds = sorted(
+            [p for p in u.predictions if p.points_earned is not None and p.match_id in match_date_lookup],
+            key=lambda p: match_date_lookup[p.match_id]
+        )
+        wrong = sum(1 for p in scored_preds if p.points_earned < 0)
+        user_badges = []
+        if correct >= 10:
+            user_badges.append(("⚡", "Tiên Tri", "positive"))
+        elif correct >= 8:
+            user_badges.append(("🔥", "Thần Lửa", "positive"))
+        elif correct >= 5:
+            user_badges.append(("🎯", "Thiện Xạ", "positive"))
+        last3 = scored_preds[-3:]
+        if len(last3) == 3 and all(p.points_earned < 0 for p in last3):
+            user_badges.append(("💀", "Vận Đen", "negative"))
+        elif wrong >= 5:
+            user_badges.append(("😬", "Lật Kèo", "negative"))
+        elif wrong > correct and wrong > 0:
+            user_badges.append(("🤔", "Linh Cảm", "negative"))
+        badges[u.id] = user_badges
+
     return templates.TemplateResponse("ranking.html", {
         "request": request,
         "user": user,
@@ -385,6 +411,7 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
         "finished_matches": finished_matches,
         "pick_grid": pick_grid,
         "penalty_grid": penalty_grid,
+        "badges": badges,
     })
 
 
