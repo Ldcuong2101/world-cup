@@ -387,7 +387,7 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
             key=lambda p: match_date_lookup[p.match_id]
         )
         user_badges = []
-        last3 = scored_preds[-3:]
+        last3 = scored_preds[-4:]
         if len(last3) == 4 and all(p.points_earned > 0 for p in last3):
             user_badges.append(("⚡", "Tiên Tri", "positive"))
         if len(last3) == 4 and all(p.points_earned < 0 for p in last3):
