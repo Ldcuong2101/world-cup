@@ -386,21 +386,12 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
             [p for p in u.predictions if p.points_earned is not None and p.match_id in match_date_lookup],
             key=lambda p: match_date_lookup[p.match_id]
         )
-        wrong = sum(1 for p in scored_preds if p.points_earned < 0)
         user_badges = []
-        if correct >= 10:
-            user_badges.append(("⚡", "Tiên Tri", "positive"))
-        elif correct >= 8:
-            user_badges.append(("🔥", "Thần Lửa", "positive"))
-        elif correct >= 5:
-            user_badges.append(("🎯", "Thiện Xạ", "positive"))
         last3 = scored_preds[-3:]
-        if len(last3) == 3 and all(p.points_earned < 0 for p in last3):
+        if len(last3) == 4 and all(p.points_earned > 0 for p in last3):
+            user_badges.append(("⚡", "Tiên Tri", "positive"))
+        if len(last3) == 4 and all(p.points_earned < 0 for p in last3):
             user_badges.append(("💀", "Vận Đen", "negative"))
-        elif wrong >= 5:
-            user_badges.append(("😬", "Lật Kèo", "negative"))
-        elif wrong > correct and wrong > 0:
-            user_badges.append(("🤔", "Linh Cảm", "negative"))
         badges[u.id] = user_badges
 
     return templates.TemplateResponse("ranking.html", {
