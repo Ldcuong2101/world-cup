@@ -392,7 +392,7 @@
          x-data="{
            {% if is_live and not can_predict %}
            peeked: true, open: true, loading: false,
-           data: { home_names: {{ live_home_names | tojson }}, away_names: {{ live_away_names | tojson }} },
+           data: {{ {'home_names': live_home_names, 'away_names': live_away_names} | jsattr }},
            {% else %}
            peeked: {{ 'true' if already_peeked else 'false' }},
            open: false, loading: false, data: null,

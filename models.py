@@ -12,6 +12,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     total_score = Column(Integer, default=0)
     stars_remaining = Column(Integer, default=3)
+    streak_bonus_stars = Column(Integer, default=0)  # milestone count for current unbroken streak
 
     predictions = relationship("Prediction", back_populates="user")
     special_answers = relationship("SpecialEventAnswer", back_populates="user")

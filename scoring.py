@@ -3,6 +3,51 @@ from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, Ch
 from config import STAGE_POINTS, STAR_MULTIPLIER
 
 
+def _award_streak_bonuses(db: Session) -> None:
+    """Award bonus stars when a user hits a new 10-streak milestone (correct or wrong).
+    streak_bonus_stars tracks milestones for the current unbroken streak; resets when streak breaks.
+    """
+    match_dates = {m.id: m.match_date for m in db.query(Match).all()}
+    users = db.query(User).filter(User.is_admin == False).all()
+
+    for user in users:
+        scored = sorted(
+            [p for p in user.predictions if p.points_earned is not None and p.match_id in match_dates],
+            key=lambda p: match_dates[p.match_id]
+        )
+        if not scored:
+            if (user.streak_bonus_stars or 0) > 0:
+                user.streak_bonus_stars = 0
+            continue
+
+        # Determine direction of the last prediction
+        last_pts = scored[-1].points_earned
+        if last_pts > 0:
+            direction = 1
+        elif last_pts < 0:
+            direction = -1
+        else:
+            direction = 0  # 0-point result breaks any streak
+
+        streak_len = 0
+        if direction != 0:
+            for p in reversed(scored):
+                if (direction == 1 and p.points_earned > 0) or (direction == -1 and p.points_earned < 0):
+                    streak_len += 1
+                else:
+                    break
+
+        milestones_owed = streak_len // 10
+        current = user.streak_bonus_stars or 0
+
+        if milestones_owed > current:
+            user.stars_remaining = (user.stars_remaining or 0) + (milestones_owed - current)
+            user.streak_bonus_stars = milestones_owed
+        elif milestones_owed < current:
+            # Streak broke — reset tracker, keep stars already given
+            user.streak_bonus_stars = milestones_owed
+
+
 def _get_effective_winner(match: Match):
     """Winner for scoring purposes after applying handicap rating. None = handicap draw (0 pts)."""
     if match.score_home is None or match.score_away is None:
@@ -68,6 +113,7 @@ def compute_match_predictions(db: Session, match: Match) -> None:
                 db.add(MatchPenalty(user_id=user.id, match_id=match.id, points_earned=no_pred_penalty))
             user.total_score = (user.total_score or 0) - old_pts + no_pred_penalty
 
+    _award_streak_bonuses(db)
     db.commit()
 
 

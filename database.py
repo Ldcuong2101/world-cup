@@ -35,6 +35,7 @@ def init_db():
             "ALTER TABLE matches ADD COLUMN lineups_data TEXT",
             "ALTER TABLE matches ADD COLUMN stats_data TEXT",
             "ALTER TABLE matches ADD COLUMN events_data TEXT",
+            "ALTER TABLE users ADD COLUMN streak_bonus_stars INTEGER DEFAULT 0",
         ]:
             try:
                 conn.execute(text(stmt))
