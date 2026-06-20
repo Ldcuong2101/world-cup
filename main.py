@@ -199,31 +199,6 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
     }
     peeks_remaining = max(0, 3 - len(peeked_ids))
 
-    # Community picks for live matches (started, no result yet)
-    _live_statuses = {'IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'}
-    live_match_ids = [
-        m.id for m in all_matches
-        if (m.match_date <= now or m.live_status in _live_statuses)
-        and m.result is None and m.winner_id is None
-    ]
-    community_picks = {}
-    if live_match_ids:
-        for mid in live_match_ids:
-            match_obj = next((m for m in all_matches if m.id == mid), None)
-            if not match_obj:
-                continue
-            preds = db.query(Prediction).filter(Prediction.match_id == mid).all()
-            total = len(preds)
-            if total == 0:
-                continue
-            home_count = sum(1 for p in preds if p.predicted_winner_id == match_obj.team_home_id)
-            away_count = total - home_count
-            community_picks[mid] = {
-                "home_pct": round(home_count * 100 / total),
-                "away_pct": round(away_count * 100 / total),
-                "total": total,
-            }
-
     msg, cat = get_flash(request)
     resp = templates.TemplateResponse("matches.html", {
         "request": request,
@@ -239,7 +214,6 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
         "peeked_ids": peeked_ids,
         "peeks_remaining": peeks_remaining,
-        "community_picks": community_picks,
     })
     resp.delete_cookie("flash_msg")
     resp.delete_cookie("flash_cat")
@@ -330,6 +304,19 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
     peeks_used = db.query(UserPeek).filter(UserPeek.user_id == user.id).count()
     peeks_remaining = max(0, 3 - peeks_used)
 
+    # When live, expose names for free (no peek quota)
+    live_home_names = []
+    live_away_names = []
+    if is_live and not can_predict:
+        rows = (
+            db.query(Prediction, User)
+            .join(User, Prediction.user_id == User.id)
+            .filter(Prediction.match_id == match_id)
+            .all()
+        )
+        live_home_names = [u.username for p, u in rows if p.predicted_winner_id == match.team_home_id]
+        live_away_names = [u.username for p, u in rows if p.predicted_winner_id != match.team_home_id]
+
     return templates.TemplateResponse("predict.html", {
         "request": request,
         "user": user,
@@ -349,6 +336,8 @@ async def predict_page(match_id: int, request: Request, db: Session = Depends(ge
         "is_live": is_live,
         "already_peeked": already_peeked,
         "peeks_remaining": peeks_remaining,
+        "live_home_names": live_home_names,
+        "live_away_names": live_away_names,
     })
 
 

@@ -390,8 +390,13 @@
     {# Community Picks #}
     <div class="glass border border-slate-700/50 rounded-2xl p-5 sm:p-6"
          x-data="{
+           {% if is_live and not can_predict %}
+           peeked: true, open: true, loading: false,
+           data: { home_names: {{ live_home_names | tojson }}, away_names: {{ live_away_names | tojson }} },
+           {% else %}
            peeked: {{ 'true' if already_peeked else 'false' }},
            open: false, loading: false, data: null,
+           {% endif %}
            async doPeek() {
              if (this.data) { this.open = !this.open; return; }
              if (!this.peeked && {{ peeks_remaining }} <= 0) {
@@ -409,10 +414,16 @@
          }">
       <div class="flex items-center justify-between mb-4">
         <p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold">Community Picks</p>
+        {% if not (is_live and not can_predict) %}
         <div class="flex items-center gap-1.5 text-[10px] text-slate-500">
           <span>👁</span>
           <span>{{ peeks_remaining }}/3 lượt</span>
         </div>
+        {% else %}
+        <span class="text-[10px] text-red-400 font-semibold flex items-center gap-1">
+          <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block"></span>LIVE
+        </span>
+        {% endif %}
       </div>
 
       {% if total_picks > 0 %}
@@ -441,7 +452,8 @@
       <p class="text-sm text-slate-500 text-center py-4">No picks yet — be the first!</p>
       {% endif %}
 
-      {# Peek button #}
+      {# Peek button — hidden when live (names already shown for free) #}
+      {% if not (is_live and not can_predict) %}
       <div class="mt-4 pt-3 border-t border-slate-700/40">
         <button @click="doPeek()"
                 :disabled="loading"
@@ -456,6 +468,7 @@
           {% endif %}
         </button>
       </div>
+      {% endif %}
 
       {# Peek result panel #}
       <div x-show="open && data" x-cloak
