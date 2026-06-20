@@ -199,6 +199,31 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
     }
     peeks_remaining = max(0, 3 - len(peeked_ids))
 
+    # Community picks for live matches (started, no result yet)
+    _live_statuses = {'IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'}
+    live_match_ids = [
+        m.id for m in all_matches
+        if (m.match_date <= now or m.live_status in _live_statuses)
+        and m.result is None and m.winner_id is None
+    ]
+    community_picks = {}
+    if live_match_ids:
+        for mid in live_match_ids:
+            match_obj = next((m for m in all_matches if m.id == mid), None)
+            if not match_obj:
+                continue
+            preds = db.query(Prediction).filter(Prediction.match_id == mid).all()
+            total = len(preds)
+            if total == 0:
+                continue
+            home_count = sum(1 for p in preds if p.predicted_winner_id == match_obj.team_home_id)
+            away_count = total - home_count
+            community_picks[mid] = {
+                "home_pct": round(home_count * 100 / total),
+                "away_pct": round(away_count * 100 / total),
+                "total": total,
+            }
+
     msg, cat = get_flash(request)
     resp = templates.TemplateResponse("matches.html", {
         "request": request,
@@ -214,6 +239,7 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
         "peeked_ids": peeked_ids,
         "peeks_remaining": peeks_remaining,
+        "community_picks": community_picks,
     })
     resp.delete_cookie("flash_msg")
     resp.delete_cookie("flash_cat")
@@ -437,10 +463,15 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
             key=lambda p: match_date_lookup[p.match_id]
         )
         user_badges = []
-        last3 = scored_preds[-4:]
-        if len(last3) == 4 and all(p.points_earned > 0 for p in last3):
+        last4 = scored_preds[-4:]
+        last10 = scored_preds[-10:]
+        if len(last10) == 10 and all(p.points_earned >= 0 for p in last10):
+            user_badges.append(("🔮", "Thần Nhãn", "legendary"))
+        elif len(last4) == 4 and all(p.points_earned >= 0 for p in last4):
             user_badges.append(("⚡", "Tiên Tri", "positive"))
-        if len(last3) == 4 and all(p.points_earned < 0 for p in last3):
+        if len(last10) == 10 and all(p.points_earned <= 0 for p in last10):
+            user_badges.append(("☄️", "Thiên Tai", "doomed"))
+        elif len(last4) == 4 and all(p.points_earned <= 0 for p in last4):
             user_badges.append(("💀", "Vận Đen", "negative"))
         badges[u.id] = user_badges
 

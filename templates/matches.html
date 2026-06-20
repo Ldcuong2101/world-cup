@@ -14,10 +14,11 @@
 {# ══════════════════════════════════════════════════════════════════════════════
    MACRO: Single match card
    ══════════════════════════════════════════════════════════════════════════════ #}
-{% macro match_card(match, user_preds, STAGE_LABELS) %}
+{% macro match_card(match, user_preds, STAGE_LABELS, community_picks={}) %}
 {% set pred = user_preds.get(match.id) %}
 {% set is_done = match.result is not none or match.winner_id is not none %}
 {% set can_predict = match.match_date > now %}
+{% set cp = community_picks.get(match.id) %}
 
 <div class="glass border border-slate-700/50 border-l-4 bl-{{ match.stage }} rounded-2xl overflow-hidden
             transition-all duration-200 hover:border-slate-600/70 hover:shadow-xl hover:shadow-black/50
@@ -239,6 +240,24 @@
     <p class="text-center text-xs text-slate-600 italic">No prediction made</p>
     {% else %}
     <p class="text-center text-xs text-slate-600 italic">—</p>
+    {% endif %}
+
+    {% if cp and not is_done and not can_predict %}
+    <div class="mt-2.5 pt-2.5 border-t border-slate-700/40">
+      <div class="flex items-center justify-between text-[10px] font-bold mb-1">
+        <span class="text-slate-300 truncate max-w-[40%]">{{ match.team_home.name if match.team_home else match.team_home_label or 'Home' }}</span>
+        <span class="text-slate-500 shrink-0 px-1">{{ cp.total }} picks</span>
+        <span class="text-slate-300 truncate max-w-[40%] text-right">{{ match.team_away.name if match.team_away else match.team_away_label or 'Away' }}</span>
+      </div>
+      <div class="relative h-2 rounded-full overflow-hidden bg-slate-700/60 flex">
+        <div class="h-full bg-blue-500/80 transition-all duration-500" style="width: {{ cp.home_pct }}%"></div>
+        <div class="h-full bg-rose-500/80 flex-1"></div>
+      </div>
+      <div class="flex justify-between text-[10px] font-bold mt-0.5">
+        <span class="text-blue-400">{{ cp.home_pct }}%</span>
+        <span class="text-rose-400">{{ cp.away_pct }}%</span>
+      </div>
+    </div>
     {% endif %}
   </div>
 
@@ -502,7 +521,7 @@
           <div class="flex-1 h-px bg-slate-800"></div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {% for m in matches %}{{ match_card(m, user_preds, STAGE_LABELS) }}{% endfor %}
+          {% for m in matches %}{{ match_card(m, user_preds, STAGE_LABELS, community_picks) }}{% endfor %}
         </div>
       </div>
       {% endfor %}
@@ -542,7 +561,7 @@
           <div class="flex-1 h-px bg-slate-800/60"></div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-90">
-          {% for m in matches %}{{ match_card(m, user_preds, STAGE_LABELS) }}{% endfor %}
+          {% for m in matches %}{{ match_card(m, user_preds, STAGE_LABELS, community_picks) }}{% endfor %}
         </div>
       </div>
       {% endfor %}

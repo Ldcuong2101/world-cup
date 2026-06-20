@@ -3,7 +3,7 @@
 
 {% block content %}
 
-{% macro render_badges(user_id) %}{% for badge in badges.get(user_id, []) %}<span class="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none {% if badge[2] == 'positive' %}{% if badge[0] == '⚡' %}badge-oracle bg-violet-500/15 text-violet-300 border border-violet-500/30{% elif badge[0] == '🔥' %}badge-fire bg-orange-500/15 text-orange-300 border border-orange-500/30{% else %}bg-green-500/15 text-green-300 border border-green-500/30{% endif %}{% else %}bg-slate-700/60 text-slate-400 border border-slate-600/40{% endif %}">{{ badge[0] }} {{ badge[1] }}</span>{% endfor %}{% endmacro %}
+{% macro render_badges(user_id) %}{% for badge in badges.get(user_id, []) %}<span class="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none {% if badge[2] == 'legendary' %}badge-legendary bg-amber-500/20 text-amber-300 border border-amber-400/50{% elif badge[2] == 'positive' %}{% if badge[0] == '⚡' %}badge-oracle bg-violet-500/15 text-violet-300 border border-violet-500/30{% elif badge[0] == '🔥' %}badge-fire bg-orange-500/15 text-orange-300 border border-orange-500/30{% else %}bg-green-500/15 text-green-300 border border-green-500/30{% endif %}{% elif badge[2] == 'doomed' %}badge-doomed bg-red-950/80 text-red-300 border border-red-700/60{% elif badge[0] == '💀' %}badge-cursed bg-red-950/60 text-red-400 border border-red-800/50{% else %}bg-slate-700/60 text-slate-400 border border-slate-600/40{% endif %}">{{ badge[0] }} {{ badge[1] }}</span>{% endfor %}{% endmacro %}
 
 <style>
 @keyframes badge-fire-glow {
@@ -14,8 +14,46 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.4); }
   50% { box-shadow: 0 0 10px 3px rgba(167,139,250,0.6); }
 }
+@keyframes badge-legendary-glow {
+  0%, 100% { box-shadow: 0 0 4px 0 rgba(251,191,36,0.3); opacity: 1; }
+  50% { box-shadow: 0 0 14px 4px rgba(251,191,36,0.7); opacity: 0.9; }
+}
+@keyframes badge-cursed-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  15% { transform: translateX(-2px) rotate(-3deg); }
+  30% { transform: translateX(2px) rotate(3deg); }
+  45% { transform: translateX(-1px) rotate(-2deg); }
+  60% { transform: translateX(1px) rotate(1deg); }
+  75% { transform: translateX(0) rotate(0deg); }
+}
+@keyframes badge-cursed-glow {
+  0%, 100% { box-shadow: 0 0 3px 0 rgba(220,38,38,0.3); }
+  50% { box-shadow: 0 0 10px 3px rgba(220,38,38,0.6); }
+}
 .badge-fire { animation: badge-fire-glow 2s ease-in-out infinite; }
 .badge-oracle { animation: badge-oracle-glow 1.5s ease-in-out infinite; }
+.badge-legendary { animation: badge-legendary-glow 1.8s ease-in-out infinite; }
+.badge-cursed {
+  animation: badge-cursed-shake 2.5s ease-in-out infinite, badge-cursed-glow 2.5s ease-in-out infinite;
+}
+@keyframes badge-doomed-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  10% { transform: translateX(-3px) rotate(-5deg); opacity: 0.8; }
+  20% { transform: translateX(3px) rotate(5deg); opacity: 1; }
+  30% { transform: translateX(-3px) rotate(-4deg); opacity: 0.7; }
+  40% { transform: translateX(3px) rotate(4deg); opacity: 1; }
+  50% { transform: translateX(-2px) rotate(-2deg); opacity: 0.85; }
+  60% { transform: translateX(2px) rotate(2deg); opacity: 1; }
+  70% { transform: translateX(0) rotate(0deg); }
+}
+@keyframes badge-doomed-glow {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(180,0,0,0.5); }
+  33% { box-shadow: 0 0 14px 5px rgba(220,38,38,0.8), 0 0 24px 8px rgba(100,0,0,0.4); }
+  66% { box-shadow: 0 0 6px 2px rgba(139,0,0,0.6); }
+}
+.badge-doomed {
+  animation: badge-doomed-shake 1.8s ease-in-out infinite, badge-doomed-glow 1.8s ease-in-out infinite;
+}
 </style>
 
 {# ── Hero: current user rank ─────────────────────────────────────────────── #}
