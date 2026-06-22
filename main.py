@@ -80,8 +80,9 @@ templates.env.filters["fmt_rating"] = _fmt_rating
 
 import json as _json
 def _jsattr(val):
-    """JSON-encode a value and escape double quotes for safe use inside x-data="..."."""
-    return _json.dumps(val).replace('"', '&quot;')
+    """JSON-encode a value for safe use inside x-data="...". Returns Markup so Jinja2 autoescape won't re-escape the &quot; entities."""
+    from markupsafe import Markup
+    return Markup(_json.dumps(val).replace('"', '&quot;'))
 templates.env.filters["jsattr"] = _jsattr
 
 import re as _re
@@ -199,6 +200,23 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
     }
     peeks_remaining = max(0, 3 - len(peeked_ids))
 
+    # Consecutive wrong prediction streak
+    match_date_map = {m.id: m.match_date for m in all_matches}
+    scored_preds = sorted(
+        [p for p in user.predictions if p.points_earned is not None and p.match_id in match_date_map],
+        key=lambda p: match_date_map[p.match_id]
+    )
+    wrong_streak = 0
+    for pred in reversed(scored_preds):
+        if pred.points_earned < 0:
+            wrong_streak += 1
+        else:
+            break
+
+    # Upcoming matches in the next 24 h without a prediction
+    cutoff_24h = now + timedelta(hours=24)
+    unpredicted_count = sum(1 for m in upcoming if m.id not in user_preds and m.match_date <= cutoff_24h)
+
     msg, cat = get_flash(request)
     resp = templates.TemplateResponse("matches.html", {
         "request": request,
@@ -214,6 +232,8 @@ async def matches_page(request: Request, db: Session = Depends(get_db)):
         "stars_remaining": user.stars_remaining if user.stars_remaining is not None else 3,
         "peeked_ids": peeked_ids,
         "peeks_remaining": peeks_remaining,
+        "wrong_streak": wrong_streak,
+        "unpredicted_count": unpredicted_count,
     })
     resp.delete_cookie("flash_msg")
     resp.delete_cookie("flash_cat")
