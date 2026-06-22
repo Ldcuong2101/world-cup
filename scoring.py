@@ -94,7 +94,7 @@ def compute_match_predictions(db: Session, match: Match) -> None:
 
     # Apply -half penalty to non-admin users who didn't submit a prediction
     no_pred_penalty = -(base_points // 2)
-    all_users = db.query(User).filter(User.is_admin == False).all()
+    all_users = db.query(User).all()
     for user in all_users:
         existing = db.query(MatchPenalty).filter(
             MatchPenalty.user_id == user.id,
