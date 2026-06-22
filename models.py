@@ -222,3 +222,15 @@ class MatchPenalty(Base):
     user_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     points_earned = Column(Integer, nullable=False)
+
+
+class Notification(Base):
+    """In-app notifications for users (star awarded, streak milestones)."""
+    __tablename__ = "notifications"
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type       = Column(String, nullable=False)   # 'star' | 'streak_win' | 'streak_lose'
+    value      = Column(Integer, nullable=False)  # star milestone count OR streak length
+    message    = Column(String, nullable=False)
+    emoji      = Column(String, nullable=False, default="🔔")
+    is_read    = Column(Boolean, default=False)

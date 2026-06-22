@@ -1,6 +1,17 @@
 from sqlalchemy.orm import Session
-from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, ChampionEvent, ChampionBet, MatchPenalty
+from models import Match, Prediction, User, SpecialEvent, SpecialEventAnswer, ChampionEvent, ChampionBet, MatchPenalty, Notification
 from config import STAGE_POINTS, STAR_MULTIPLIER
+
+
+def _notify(db: Session, user_id: int, type: str, value: int, message: str, emoji: str) -> None:
+    """Create a notification only if one with the same (user, type, value) doesn't already exist."""
+    exists = db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.type == type,
+        Notification.value == value,
+    ).first()
+    if not exists:
+        db.add(Notification(user_id=user_id, type=type, value=value, message=message, emoji=emoji))
 
 
 def _award_streak_bonuses(db: Session) -> None:
@@ -41,11 +52,35 @@ def _award_streak_bonuses(db: Session) -> None:
         current = user.streak_bonus_stars or 0
 
         if milestones_owed > current:
-            user.stars_remaining = (user.stars_remaining or 0) + (milestones_owed - current)
+            stars_gained = milestones_owed - current
+            user.stars_remaining = (user.stars_remaining or 0) + stars_gained
             user.streak_bonus_stars = milestones_owed
+            # Notify for each newly earned star
+            for m in range(current + 1, milestones_owed + 1):
+                _notify(db, user.id, 'star', m,
+                        f"You earned a bonus star! {m * 10} predictions in a row — keep it up!",
+                        "⭐")
         elif milestones_owed < current:
-            # Streak broke — reset tracker, keep stars already given
             user.streak_bonus_stars = milestones_owed
+
+        # Streak milestone notification (every 10, win or lose)
+        if streak_len > 0 and streak_len % 10 == 0:
+            if direction == 1:
+                msgs = {
+                    10: "10 correct in a row! You're on fire 🔥",
+                    20: "20 correct picks straight — are you a football oracle?! 🚀",
+                    30: "30 correct in a row. Absolutely unreal 🏆",
+                }
+                msg = msgs.get(streak_len, f"{streak_len} correct in a row — legendary! 🏆")
+                _notify(db, user.id, 'streak_win', streak_len, msg, "🔥")
+            else:
+                msgs = {
+                    10: "10 wrong in a row... but you're still here. Respect 😅",
+                    20: "20 wrong straight — have you considered coaching instead? 😂",
+                    30: "30 wrong in a row. This is historically bad 💀",
+                }
+                msg = msgs.get(streak_len, f"{streak_len} wrong in a row — history books territory 💀")
+                _notify(db, user.id, 'streak_lose', streak_len, msg, "💀")
 
 
 def _get_effective_winner(match: Match):

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from database import get_db, init_db, SessionLocal
-from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet, MatchPenalty, UserPeek
+from models import User, Team, Match, Prediction, SpecialEvent, SpecialEventAnswer, Result, Article, MatchArticle, ChampionEvent, ChampionBet, MatchPenalty, UserPeek, Notification
 from auth import (
     hash_password, verify_password, create_session_token,
     get_current_user, SESSION_COOKIE,
@@ -1180,3 +1180,33 @@ async def change_password(
     user.password_hash = hash_password(new_password)
     db.commit()
     return redirect("/profile", "Password updated successfully!", "success")
+
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+@app.get("/api/notifications")
+async def get_notifications(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse([])
+    notes = db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.is_read == False,
+    ).order_by(Notification.id).all()
+    return JSONResponse([
+        {"id": n.id, "message": n.message, "emoji": n.emoji}
+        for n in notes
+    ])
+
+
+@app.post("/api/notifications/read")
+async def mark_notifications_read(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"ok": False})
+    db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
+    return JSONResponse({"ok": True})

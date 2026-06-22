@@ -161,6 +161,55 @@
 </nav>
 {% endif %}
 
+{# In-app notification toasts (star / streak milestones) #}
+{% if user %}
+<div x-data="notifToasts()" x-init="load()" class="fixed top-4 right-4 z-[9998] flex flex-col gap-2 items-end pointer-events-none" style="max-width:22rem">
+  <template x-for="n in toasts" :key="n.id">
+    <div x-show="n.visible"
+         x-transition:enter="transition ease-out duration-400"
+         x-transition:enter-start="opacity-0 translate-x-8"
+         x-transition:enter-end="opacity-100 translate-x-0"
+         x-transition:leave="transition ease-in duration-250"
+         x-transition:leave-start="opacity-100 translate-x-0"
+         x-transition:leave-end="opacity-0 translate-x-8"
+         class="pointer-events-auto flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-slate-900/95 backdrop-blur shadow-2xl px-4 py-3 text-sm w-full">
+      <span class="text-2xl leading-none shrink-0" x-text="n.emoji"></span>
+      <p class="flex-1 text-slate-200 font-medium leading-snug" x-text="n.message"></p>
+      <button @click="dismiss(n)" class="text-slate-500 hover:text-slate-300 text-lg leading-none ml-1 shrink-0">×</button>
+    </div>
+  </template>
+</div>
+<script>
+function notifToasts() {
+  return {
+    toasts: [],
+    async load() {
+      try {
+        const res = await fetch('/api/notifications');
+        const notes = await res.json();
+        if (!notes.length) return;
+        // Mark all as read immediately so they don't re-appear on refresh
+        fetch('/api/notifications/read', { method: 'POST' });
+        // Stagger each toast 600ms apart
+        notes.forEach((n, i) => {
+          setTimeout(() => {
+            n.visible = true;
+            this.toasts.push(n);
+            // Auto-dismiss after 6s
+            setTimeout(() => this.dismiss(n), 6000);
+          }, i * 600);
+        });
+      } catch (e) {}
+    },
+    dismiss(n) {
+      n.visible = false;
+      setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== n.id); }, 300);
+    }
+  };
+}
+</script>
+{% endif %}
+
 {# Flash message #}
 {% if flash_msg %}
 <div class="max-w-6xl mx-auto px-4 pt-4"
