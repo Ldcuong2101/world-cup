@@ -427,7 +427,7 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse("/login", status_code=302)
 
-    users = db.query(User).order_by(User.total_score.desc()).all()
+    users = db.query(User).all()
 
     # Count correct predictions per user
     correct_counts = {}
@@ -437,6 +437,8 @@ async def ranking_page(request: Request, db: Session = Depends(get_db)):
             if p.points_earned is not None and p.points_earned > 0
         )
         correct_counts[u.id] = correct
+
+    users = sorted(users, key=lambda u: (-(u.total_score or 0), -correct_counts[u.id]))
 
     # Picks grid: finished matches × users
     finished_matches = (
