@@ -108,6 +108,9 @@ def compute_match_predictions(db: Session, match: Match) -> None:
     predictions = db.query(Prediction).filter(Prediction.match_id == match.id).all()
     predicted_user_ids = set()
 
+    home_pick_count = sum(1 for p in predictions if p.predicted_winner_id == match.team_home_id)
+    away_pick_count = sum(1 for p in predictions if p.predicted_winner_id == match.team_away_id)
+
     for pred in predictions:
         predicted_user_ids.add(pred.user_id)
         star = bool(pred.use_star)
@@ -116,6 +119,9 @@ def compute_match_predictions(db: Session, match: Match) -> None:
         if effective_winner is None:
             earned = 0  # handicap draw — star has no effect
         elif pred.predicted_winner_id == effective_winner:
+            pick_count = home_pick_count if pred.predicted_winner_id == match.team_home_id else away_pick_count
+            if pick_count == 1:
+                multiplier *= 2  # lone correct picker gets ×2
             earned = int(base_points * multiplier)
         else:
             earned = -base_points * multiplier  # penalty = same magnitude as reward
