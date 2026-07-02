@@ -17,7 +17,7 @@ from scoring import compute_match_predictions, compute_special_event, compute_ch
 from config import STAGE_LABELS, STAGE_ORDER, SECRET_KEY, LIVE_EARLY_MINUTES
 from signup import router as signup_router
 from crawler import crawl_news_list, crawl_match_article
-from knockout import resolve_r32_from_group_standings, advance_to_next_round
+from knockout import resolve_r32_from_group_standings, advance_to_next_round, revert_match_result
 
 
 app = FastAPI()
@@ -852,6 +852,27 @@ async def admin_set_result(
     compute_match_predictions(db, match)
     advance_to_next_round(db, match)
     return redirect("/admin", "Result saved and scores updated!", "success")
+
+
+@app.post("/admin/match/{match_id}/revert-result")
+async def admin_revert_result(match_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404)
+
+    try:
+        warnings = revert_match_result(db, match)
+    except ValueError as e:
+        return redirect("/admin", str(e), "error")
+
+    msg = "Result reverted — scores, predictions, and bracket advancement undone."
+    if warnings:
+        msg += " " + " ".join(warnings)
+    return redirect("/admin", msg, "warning" if warnings else "success")
 
 
 @app.post("/admin/resolve-r32")

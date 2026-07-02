@@ -392,6 +392,13 @@ document.addEventListener('alpine:init', () => {
           {% elif match.result and match.result.is_extra_time %}{{ match.result.score_home_et }}-{{ match.result.score_away_et }} AET | 90': {{ match.score_home }}-{{ match.score_away }}
           {% else %}{{ match.score_home }}-{{ match.score_away }}{% endif %}
         </span>
+        <form method="POST" action="/admin/match/{{ match.id }}/revert-result"
+              onsubmit="return confirm('Undo this result? This reverses prediction scoring and bracket advancement for match #{{ match.match_num or match.id }}.');">
+          <button type="submit"
+                  class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-500/20 transition">
+            Undo
+          </button>
+        </form>
         {% elif match_status == 'live' %}<span class="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
         {% else %}<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">Soon</span>{% endif %}
       </div>

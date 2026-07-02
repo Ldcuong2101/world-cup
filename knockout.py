@@ -2,10 +2,13 @@
 knockout.py - Resolve knockout-stage brackets from group results and advance winners.
 """
 
+import json
+import os
 import re
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from models import Match, Team
+from models import Match, Team, Prediction, User, MatchPenalty
+from scoring import _award_streak_bonuses
 
 
 def _compute_group_standings(db):
@@ -196,6 +199,147 @@ def resolve_r32_from_group_standings(db: Session):
 
     db.commit()
     return updated, warnings
+
+
+_BRACKET_JSON_PATH = os.path.join(os.path.dirname(__file__), "metadata", "worldcup.json")
+
+# Mirrors seed_from_json.ROUND_TO_STAGE; kept local to avoid importing seed_from_json
+# (which drops/recreates the schema as a module-level side effect).
+_ROUND_TO_STAGE = {
+    "Round of 32": "r32",
+    "Round of 16": "r16",
+    "Quarter-final": "r8",
+    "Semi-final": "semi",
+    "Match for third place": "r4",
+    "Final": "final",
+}
+
+_reverse_bracket_map = None
+
+
+def _get_reverse_bracket_map():
+    """
+    (source match_num, 'W'|'L') -> {stage, match_num, side, label} describing which
+    match/slot that winner or loser feeds into, per the static tournament fixture.
+
+    Built from metadata/worldcup.json rather than live Match rows: once a winner is
+    pushed forward, advance_to_next_round overwrites the destination's placeholder
+    label ("W74") with the resolved team name, so the DB alone can no longer answer
+    "where did this match's winner go" for reverting.
+    """
+    global _reverse_bracket_map
+    if _reverse_bracket_map is not None:
+        return _reverse_bracket_map
+
+    with open(_BRACKET_JSON_PATH, encoding="utf-8") as f:
+        fixtures = json.load(f)["matches"]
+
+    mapping = {}
+    for m in fixtures:
+        stage = _ROUND_TO_STAGE.get(m["round"])
+        if stage is None:
+            continue  # group-stage matches are never a W/L destination
+        dest_num = m.get("num")  # None for Final / Match for third place
+        for side, field in (("home", "team1"), ("away", "team2")):
+            ref = m.get(field) or ""
+            mo = re.match(r'^([WL])(\d+)$', ref)
+            if mo:
+                kind, src_num = mo.group(1), int(mo.group(2))
+                mapping[(src_num, kind)] = {
+                    "stage": stage, "match_num": dest_num, "side": side, "label": ref,
+                }
+    _reverse_bracket_map = mapping
+    return mapping
+
+
+def revert_match_result(db: Session, match: Match) -> list:
+    """
+    Undo a saved result: reverses prediction scoring, no-prediction penalties, and
+    bracket advancement for this match, restoring it to a not-yet-played state.
+
+    Raises ValueError if a downstream match has already been played off this
+    match's winner/loser — that match must be reverted first, since un-advancing
+    would rip a team out from under an already-scored result.
+
+    Returns a list of warning strings (e.g. a group-stage caveat about R32).
+    """
+    if match.result is None and match.winner_id is None and match.score_home is None:
+        raise ValueError("This match has no result to revert.")
+
+    bracket_map = _get_reverse_bracket_map()
+
+    winner_id = match.winner_id
+    loser_id = None
+    if winner_id:
+        loser_id = match.team_away_id if winner_id == match.team_home_id else match.team_home_id
+
+    # 1) Resolve downstream slots and refuse if any of them already has a result.
+    downstream = []
+    if match.match_num:
+        for kind, team_id in (("W", winner_id), ("L", loser_id)):
+            if not team_id:
+                continue
+            entry = bracket_map.get((match.match_num, kind))
+            if not entry:
+                continue
+            dest = db.query(Match).filter(
+                Match.stage == entry["stage"],
+                Match.match_num == entry["match_num"],
+            ).first()
+            if not dest:
+                continue
+            if dest.result is not None:
+                raise ValueError(
+                    f"Cannot revert: match #{dest.match_num or dest.id} ({dest.round_name}) "
+                    f"already has a result built on this match's outcome. Revert that match first."
+                )
+            downstream.append((dest, entry))
+
+    # 2) Reverse prediction scoring.
+    for pred in db.query(Prediction).filter(Prediction.match_id == match.id).all():
+        old_points = pred.points_earned or 0
+        pred.points_earned = None
+        user = db.query(User).filter(User.id == pred.user_id).first()
+        if user:
+            user.total_score = (user.total_score or 0) - old_points
+
+    # 3) Reverse no-prediction penalties.
+    for penalty in db.query(MatchPenalty).filter(MatchPenalty.match_id == match.id).all():
+        user = db.query(User).filter(User.id == penalty.user_id).first()
+        if user:
+            user.total_score = (user.total_score or 0) - (penalty.points_earned or 0)
+        db.delete(penalty)
+
+    # 4) Undo bracket advancement.
+    for dest, entry in downstream:
+        if entry["side"] == "home":
+            dest.team_home_id = None
+            dest.team_home_label = entry["label"]
+        else:
+            dest.team_away_id = None
+            dest.team_away_label = entry["label"]
+
+    # 5) Clear the match's own result.
+    if match.result is not None:
+        db.delete(match.result)
+    match.score_home = None
+    match.score_away = None
+    match.winner_id = None
+
+    db.commit()
+
+    # Streak bonuses depend on the full ordered prediction history, not just this
+    # match, so they're recomputed globally rather than reversed in place.
+    _award_streak_bonuses(db)
+    db.commit()
+
+    warnings = []
+    if match.stage == "group":
+        warnings.append(
+            "This was a group-stage match — if R32 slots were already resolved from "
+            "standings, re-run 'Resolve R32' after fixing the correct result."
+        )
+    return warnings
 
 
 def advance_to_next_round(db: Session, match: Match):
