@@ -345,44 +345,42 @@ def revert_match_result(db: Session, match: Match) -> list:
 def advance_to_next_round(db: Session, match: Match):
     """
     After a match result is saved:
-    - Push winner into next-round match labelled 'W{match_num}'.
-    - For semi-finals, also push the loser into the 3rd-place match labelled 'L{match_num}'.
+    - Push winner into the next-round match's 'W{match_num}' slot.
+    - For semi-finals, also push the loser into the 3rd-place match's 'L{match_num}' slot.
+
+    Destinations are looked up via the static bracket map (keyed on match_num)
+    rather than by searching for the placeholder label text — the label gets
+    overwritten with the team name on the first advance, so a label-text search
+    would silently no-op on a corrected result being re-saved.
     """
     if not match.match_num or not match.winner_id:
         return
 
-    winner_ref = f"W{match.match_num}"
-    loser_ref = f"L{match.match_num}"
-
-    winner = db.query(Team).get(match.winner_id)
-    if winner:
-        nxt = db.query(Match).filter(
-            (Match.team_home_label == winner_ref) | (Match.team_away_label == winner_ref)
-        ).first()
-        if nxt:
-            if nxt.team_home_label == winner_ref:
-                nxt.team_home_id = winner.id
-                nxt.team_home_label = winner.name
-            else:
-                nxt.team_away_id = winner.id
-                nxt.team_away_label = winner.name
-
-    # Loser slot (only exists for semi-finals → 3rd-place match)
+    bracket_map = _get_reverse_bracket_map()
     loser_id = (
         match.team_away_id if match.winner_id == match.team_home_id else match.team_home_id
     )
-    if loser_id:
-        loser = db.query(Team).get(loser_id)
-        if loser:
-            third = db.query(Match).filter(
-                (Match.team_home_label == loser_ref) | (Match.team_away_label == loser_ref)
-            ).first()
-            if third:
-                if third.team_home_label == loser_ref:
-                    third.team_home_id = loser.id
-                    third.team_home_label = loser.name
-                else:
-                    third.team_away_id = loser.id
-                    third.team_away_label = loser.name
+
+    for kind, team_id in (("W", match.winner_id), ("L", loser_id)):
+        if not team_id:
+            continue
+        entry = bracket_map.get((match.match_num, kind))
+        if not entry:
+            continue
+        dest = db.query(Match).filter(
+            Match.stage == entry["stage"],
+            Match.match_num == entry["match_num"],
+        ).first()
+        if not dest:
+            continue
+        team = db.query(Team).get(team_id)
+        if not team:
+            continue
+        if entry["side"] == "home":
+            dest.team_home_id = team.id
+            dest.team_home_label = team.name
+        else:
+            dest.team_away_id = team.id
+            dest.team_away_label = team.name
 
     db.commit()
